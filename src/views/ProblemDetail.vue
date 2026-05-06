@@ -10,6 +10,7 @@ import { Codemirror } from 'vue-codemirror'
 import { java } from '@codemirror/lang-java'
 import { indentUnit } from '@codemirror/language'
 import { EditorState } from '@codemirror/state'
+import { EditorView } from '@codemirror/view'
 import { oneDark } from '@codemirror/theme-one-dark'
 import type { Difficulty, Problem } from '@/types/problem'
 
@@ -19,6 +20,7 @@ const problemsStore = useProblemsStore()
 const progress = useProgressStore()
 
 const cmExtensions = [java(), oneDark, EditorState.tabSize.of(4), indentUnit.of('    ')]
+const readOnlyExtensions = [...cmExtensions, EditorView.editable.of(false)]
 
 const problem = shallowRef<Problem | null>(null)
 
@@ -499,7 +501,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
       </div>
       <!-- 查看模式 -->
       <div class="section-body code-body" v-else-if="showCode">
-        <pre class="code-block"><code>{{ problem.code || '// 暂无参考代码' }}</code></pre>
+        <Codemirror
+          :model-value="problem.code || '// 暂无参考代码'"
+          :extensions="readOnlyExtensions"
+          :style="{ height: 'auto' }"
+          disabled
+        />
       </div>
       <div class="section-body" v-else>
         <div class="hidden-block">点击「显示」查看参考代码</div>
@@ -549,13 +556,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
             <!-- 代码内容 -->
             <div
               class="code-fs-scroll"
+              :style="{ '--cm-font-size': codeFontSize + 'px' }"
               @touchstart="onTouchStart"
               @touchmove="onTouchMove"
             >
-              <pre
-                class="code-fs-block"
-                :style="{ fontSize: codeFontSize + 'px' }"
-              ><code>{{ problem.code || '// 暂无参考代码' }}</code></pre>
+              <Codemirror
+                :model-value="problem.code || '// 暂无参考代码'"
+                :extensions="readOnlyExtensions"
+                :style="{ height: '100%' }"
+                disabled
+              />
             </div>
             <!-- 底部提示 -->
             <div class="code-fs-hint">双指缩放调整字号 · 点击空白处关闭</div>
@@ -838,17 +848,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 .code-body {
   padding: 0;
 }
-.code-block {
-  margin: 0;
-  padding: 14px;
+.code-body :deep(.cm-editor) {
   background: #0f172a;
-  color: #e2e8f0;
-  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
   font-size: 12.5px;
-  line-height: 1.65;
-  overflow-x: auto;
-  white-space: pre;
-  -webkit-overflow-scrolling: touch;
+}
+.code-body :deep(.cm-scroller) {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
 }
 
 /* 代码编辑 textarea */
@@ -1088,17 +1093,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  --cm-font-size: 13px;
 }
-.code-fs-block {
-  margin: 0;
-  padding: 16px;
+.code-fs-scroll :deep(.cm-editor) {
+  height: 100%;
   background: transparent;
-  color: #e2e8f0;
+}
+.code-fs-scroll :deep(.cm-scroller) {
   font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: var(--cm-font-size);
   line-height: 1.7;
-  white-space: pre;
-  /* 不换行，让横向滚动生效 */
-  min-width: max-content;
 }
 
 .code-fs-hint {
