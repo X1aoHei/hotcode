@@ -20,4 +20,6 @@ export interface Problem {
   timeComplexity?: string
   /** 空间复杂度 */
   spaceComplexity?: string
+  /** 默写区默认内容（方法签名骨架） */
+  draft?: string
 }

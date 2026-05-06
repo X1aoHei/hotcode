@@ -16,6 +16,8 @@
     "codemirror": "^6.0.2",
     "element-plus": "^2.7.6",
     "pinia": "^2.1.7",
+    "prettier": "^3.8.3",
+    "prettier-plugin-java": "^2.8.1",
     "vue": "^3.4.31",
     "vue-codemirror": "^6.1.1",
     "vue-router": "^4.4.0"
