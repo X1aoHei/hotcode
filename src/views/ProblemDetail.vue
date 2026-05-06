@@ -214,6 +214,17 @@ function loadDraft(id: number): string {
   const p = problemsStore.allProblems.find((p) => p.id === id)
   return p ? extractMethodSignatures(p.code) : ''
 }
+// ── 默写区自动暂存（防抖） ──
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+watch(userDraft, () => {
+  if (autoSaveTimer) clearTimeout(autoSaveTimer)
+  autoSaveTimer = setTimeout(() => {
+    if (problem.value) {
+      localStorage.setItem(DRAFT_PREFIX + problem.value.id, userDraft.value)
+    }
+  }, 800)
+})
+
 function saveDraft() {
   if (problem.value) {
     localStorage.setItem(DRAFT_PREFIX + problem.value.id, userDraft.value)
