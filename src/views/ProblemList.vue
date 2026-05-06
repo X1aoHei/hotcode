@@ -27,10 +27,20 @@ const keyword = ref('')
 const selectedDifficulty = ref<Difficulty | ''>('')
 const selectedTags = ref<string[]>([])
 const selectedStatus = ref<MasteryStatus | ''>('')
+const sortOrder = ref<'default' | 'asc' | 'desc'>('default')
+
+function toggleSort() {
+  sortOrder.value =
+    sortOrder.value === 'default' ? 'asc' : sortOrder.value === 'asc' ? 'desc' : 'default'
+}
+
+const sortLabel = computed(() =>
+  sortOrder.value === 'asc' ? '↑ 题号升序' : sortOrder.value === 'desc' ? '↓ 题号降序' : '排序'
+)
 
 const filtered = computed(() => {
   const kw = keyword.value.trim().toLowerCase()
-  return problems.value.filter((p) => {
+  const list = problems.value.filter((p) => {
     if (kw) {
       const hit =
         String(p.id).includes(kw) ||
@@ -44,6 +54,9 @@ const filtered = computed(() => {
     if (selectedStatus.value && progress.getStatus(p.id) !== selectedStatus.value) return false
     return true
   })
+  if (sortOrder.value === 'asc') return [...list].sort((a, b) => a.id - b.id)
+  if (sortOrder.value === 'desc') return [...list].sort((a, b) => b.id - a.id)
+  return list
 })
 
 function diffClass(d: Difficulty) {
@@ -89,6 +102,7 @@ function clearFilters() {
   selectedDifficulty.value = ''
   selectedTags.value = []
   selectedStatus.value = ''
+  sortOrder.value = 'default'
 }
 
 // ── 导入 / 导出 ──
@@ -190,6 +204,11 @@ const statsBar = computed(() => {
       <div class="action-row">
         <el-button type="primary" class="action-btn" @click="randomPick">🎲 随机抽题</el-button>
         <el-button type="warning" class="action-btn" @click="randomFromUnmastered">🔁 待复习</el-button>
+        <el-button
+          class="action-btn-sort"
+          :class="{ 'sort-active': sortOrder !== 'default' }"
+          @click="toggleSort"
+        >{{ sortLabel }}</el-button>
         <el-button class="action-btn-clear" @click="clearFilters">清空</el-button>
         <span class="result-count">{{ filtered.length }} 道</span>
       </div>
@@ -315,6 +334,14 @@ const statsBar = computed(() => {
 }
 .action-btn-clear {
   padding: 8px 12px;
+}
+.action-btn-sort {
+  padding: 8px 12px;
+  font-weight: 600;
+}
+.sort-active {
+  color: #2563eb !important;
+  border-color: #93c5fd !important;
 }
 .result-count {
   margin-left: auto;
