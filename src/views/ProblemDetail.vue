@@ -260,8 +260,10 @@ function leetcodeUrl(slug: string) {
 }
 
 function onKey(e: KeyboardEvent) {
-  const tag = (e.target as HTMLElement)?.tagName
+  const el = e.target as HTMLElement
+  const tag = el?.tagName
   if (tag === 'TEXTAREA' || tag === 'INPUT') return
+  if (el?.closest('.cm-editor')) return
   if (e.key === 'ArrowLeft') go(prevId.value)
   else if (e.key === 'ArrowRight') go(nextId.value)
   else if (e.key === 'a' || e.key === 'A') showApproach.value = !showApproach.value
