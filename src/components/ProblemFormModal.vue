@@ -1,0 +1,492 @@
+<script setup lang="ts">
+import { ref, watch, computed } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useProblemsStore } from '@/stores/problems'
+import type { Problem, Difficulty } from '@/types/problem'
+
+const props = defineProps<{
+  visible: boolean
+  /** 传入则为编辑模式，不传则为新增模式 */
+  problem?: Problem | null
+}>()
+
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'saved', id: number): void
+}>()
+
+const store = useProblemsStore()
+
+// ── 表单数据 ──
+interface FormData {
+  id: number | ''
+  title: string
+  slug: string
+  difficulty: Difficulty
+  tags: string[]
+  description: string
+  approach: string
+  code: string
+  timeComplexity: string
+  spaceComplexity: string
+}
+
+function emptyForm(): FormData {
+  return {
+    id: store.nextCustomId(),
+    title: '',
+    slug: '',
+    difficulty: 'Medium',
+    tags: [],
+    description: '',
+    approach: '',
+    code: '',
+    timeComplexity: '',
+    spaceComplexity: '',
+  }
+}
+
+const form = ref<FormData>(emptyForm())
+const isEdit = computed(() => !!props.problem)
+const modalTitle = computed(() => (isEdit.value ? '编辑题目' : '新增题目'))
+
+/** 当前激活的标签页 */
+const activeTab = ref('basic')
+
+watch(
+  () => props.visible,
+  (val) => {
+    if (!val) return
+    activeTab.value = 'basic'
+    if (props.problem) {
+      form.value = { ...props.problem }
+    } else {
+      form.value = emptyForm()
+    }
+  }
+)
+
+// ── 标签可选列表（含静态标签 + 用户自定义） ──
+const tagOptions = computed(() => store.allTags)
+
+// ── 是否内置题目 ──
+const isStatic = computed(() =>
+  isEdit.value ? !store.isCustom(props.problem!.id) : false
+)
+
+function handleSave() {
+  if (!String(form.value.title).trim()) {
+    ElMessage.error('请填写题目标题')
+    activeTab.value = 'basic'
+    return
+  }
+  if (form.value.id === '' || form.value.id === null) {
+    ElMessage.error('题号不能为空')
+    activeTab.value = 'basic'
+    return
+  }
+  const id = Number(form.value.id)
+  if (!isEdit.value && store.idExists(id)) {
+    ElMessage.error(`题号 ${id} 已存在，请修改`)
+    activeTab.value = 'basic'
+    return
+  }
+
+  const problem: Problem = {
+    id,
+    title: form.value.title.trim(),
+    slug: form.value.slug.trim(),
+    difficulty: form.value.difficulty,
+    tags: form.value.tags,
+    description: form.value.description.trim(),
+    approach: form.value.approach.trim(),
+    code: form.value.code,
+    timeComplexity: form.value.timeComplexity.trim() || undefined,
+    spaceComplexity: form.value.spaceComplexity.trim() || undefined,
+  }
+
+  if (isEdit.value) {
+    store.updateProblem(problem)
+    ElMessage.success('题目已更新')
+  } else {
+    store.addProblem(problem)
+    ElMessage.success('题目已添加')
+  }
+
+  emit('saved', id)
+  emit('close')
+}
+
+async function handleReset() {
+  if (!props.problem) return
+  await ElMessageBox.confirm(
+    '将还原为内置原始内容，你的修改会丢失，确认还原吗？',
+    '还原确认',
+    { confirmButtonText: '确认还原', cancelButtonText: '取消', type: 'warning' }
+  )
+  store.resetProblem(props.problem.id)
+  ElMessage.success('已还原为原始内容')
+  emit('close')
+}
+</script>
+
+<template>
+  <teleport to="body">
+    <transition name="modal">
+      <div v-if="visible" class="form-overlay" @click.self="emit('close')">
+        <div class="form-panel">
+
+          <!-- 头部 -->
+          <div class="form-header">
+            <span class="form-title">{{ modalTitle }}</span>
+            <div class="form-header-actions">
+              <button
+                v-if="isEdit && isStatic"
+                class="hdr-btn hdr-btn--reset"
+                @click="handleReset"
+                title="还原为内置原始内容"
+              >还原</button>
+              <button class="hdr-btn hdr-btn--close" @click="emit('close')">✕</button>
+            </div>
+          </div>
+
+          <!-- 标签页导航 -->
+          <div class="form-tabs">
+            <button
+              v-for="tab in [
+                { key: 'basic', label: '基本' },
+                { key: 'desc', label: '题面' },
+                { key: 'solution', label: '解题' },
+                { key: 'code', label: '代码' },
+              ]"
+              :key="tab.key"
+              :class="['form-tab', { active: activeTab === tab.key }]"
+              @click="activeTab = tab.key"
+            >{{ tab.label }}</button>
+          </div>
+
+          <!-- 表单内容（可滚动） -->
+          <div class="form-body">
+
+            <!-- 基本信息 -->
+            <div v-show="activeTab === 'basic'" class="form-section">
+              <div class="field-row">
+                <div class="field field--sm">
+                  <label class="field-label">题号 <em>*</em></label>
+                  <el-input
+                    v-model.number="form.id"
+                    type="number"
+                    :disabled="isEdit"
+                    placeholder="如 10001"
+                  />
+                  <p v-if="!isEdit" class="field-hint">自定义题目从 10001 起自动分配</p>
+                </div>
+                <div class="field field--diff">
+                  <label class="field-label">难度 <em>*</em></label>
+                  <el-select v-model="form.difficulty" style="width:100%">
+                    <el-option
+                      v-for="d in ['Easy','Medium','Hard']"
+                      :key="d" :label="d" :value="d"
+                    />
+                  </el-select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label class="field-label">标题 <em>*</em></label>
+                <el-input v-model="form.title" placeholder="例：两数之和" />
+              </div>
+
+              <div class="field">
+                <label class="field-label">LeetCode Slug</label>
+                <el-input v-model="form.slug" placeholder="例：two-sum" />
+                <p class="field-hint">用于生成 leetcode.cn 跳转链接</p>
+              </div>
+
+              <div class="field">
+                <label class="field-label">标签</label>
+                <el-select
+                  v-model="form.tags"
+                  multiple
+                  filterable
+                  allow-create
+                  default-first-option
+                  placeholder="选择或输入后回车新增"
+                  style="width:100%"
+                >
+                  <el-option
+                    v-for="t in tagOptions"
+                    :key="t" :label="t" :value="t"
+                  />
+                </el-select>
+              </div>
+
+              <div class="field-row">
+                <div class="field">
+                  <label class="field-label">时间复杂度</label>
+                  <el-input v-model="form.timeComplexity" placeholder="O(n)" />
+                </div>
+                <div class="field">
+                  <label class="field-label">空间复杂度</label>
+                  <el-input v-model="form.spaceComplexity" placeholder="O(1)" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 题目描述 -->
+            <div v-show="activeTab === 'desc'" class="form-section">
+              <div class="field field--full">
+                <label class="field-label">题目描述</label>
+                <el-input
+                  v-model="form.description"
+                  type="textarea"
+                  :rows="14"
+                  placeholder="粘贴或输入题目描述..."
+                  resize="none"
+                />
+              </div>
+            </div>
+
+            <!-- 解题思路 -->
+            <div v-show="activeTab === 'solution'" class="form-section">
+              <div class="field field--full">
+                <label class="field-label">解题思路 / 核心步骤</label>
+                <el-input
+                  v-model="form.approach"
+                  type="textarea"
+                  :rows="14"
+                  placeholder="写下关键思路、步骤要点..."
+                  resize="none"
+                />
+              </div>
+            </div>
+
+            <!-- 参考代码 -->
+            <div v-show="activeTab === 'code'" class="form-section">
+              <div class="field field--full">
+                <label class="field-label">参考代码</label>
+                <el-input
+                  v-model="form.code"
+                  type="textarea"
+                  :rows="14"
+                  placeholder="粘贴参考代码..."
+                  resize="none"
+                  class="code-textarea"
+                />
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 底部操作 -->
+          <div class="form-footer">
+            <button class="foot-btn foot-btn--cancel" @click="emit('close')">取消</button>
+            <button class="foot-btn foot-btn--save" @click="handleSave">
+              {{ isEdit ? '保存修改' : '添加题目' }}
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </transition>
+  </teleport>
+</template>
+
+<style scoped>
+/* ── 遮罩 ── */
+.form-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+}
+
+/* ── 面板（移动端：底部抽屉） ── */
+.form-panel {
+  width: 100%;
+  height: 92dvh;
+  background: #fff;
+  border-radius: 14px 14px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── 头部 ── */
+.form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+.form-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+.form-header-actions {
+  display: flex;
+  gap: 8px;
+}
+.hdr-btn {
+  padding: 5px 12px;
+  border-radius: 7px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 32px;
+  -webkit-tap-highlight-color: transparent;
+}
+.hdr-btn--reset {
+  background: #fef9c3;
+  color: #b45309;
+}
+.hdr-btn--close {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* ── 标签页 ── */
+.form-tabs {
+  display: flex;
+  border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+  background: #fafafa;
+}
+.form-tab {
+  flex: 1;
+  padding: 10px 4px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.form-tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+  font-weight: 700;
+}
+
+/* ── 表单内容 ── */
+.form-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px;
+}
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.field--full {
+  height: 100%;
+}
+.field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+.field-label em {
+  color: #ef4444;
+  font-style: normal;
+  margin-left: 2px;
+}
+.field-hint {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #9ca3af;
+}
+/* 代码 textarea 等宽字体 */
+.code-textarea :deep(.el-textarea__inner) {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-color: #1e293b;
+}
+
+/* ── 底部按钮 ── */
+.form-footer {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+.foot-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 9px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 46px;
+  -webkit-tap-highlight-color: transparent;
+}
+.foot-btn--cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+.foot-btn--save {
+  background: #3b82f6;
+  color: #fff;
+}
+.foot-btn--save:active {
+  background: #2563eb;
+}
+
+/* ── 过渡动画 ── */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+.modal-enter-active .form-panel,
+.modal-leave-active .form-panel {
+  transition: transform 0.25s ease;
+}
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+.modal-enter-from .form-panel,
+.modal-leave-to .form-panel {
+  transform: translateY(100%);
+}
+
+/* ── 桌面端：居中弹窗 ── */
+@media (min-width: 640px) {
+  .form-overlay {
+    align-items: center;
+    justify-content: center;
+  }
+  .form-panel {
+    width: min(680px, 92vw);
+    height: min(82vh, 760px);
+    border-radius: 12px;
+  }
+}
+</style>
