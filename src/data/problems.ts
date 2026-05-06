@@ -17,14 +17,16 @@ export const problems: Problem[] = [
       '给定一个整数数组 nums 和一个整数目标值 target，请你在该数组中找出和为目标值 target 的那两个整数，并返回它们的数组下标。你可以假设每种输入只会对应一个答案，且同一个元素不能使用两遍。',
     approach:
       '一次遍历 + 哈希表：遍历过程中，对每个数 x 检查 target - x 是否已在哈希表中；若在，直接返回两者下标；否则把 x 与下标记入表中。',
-    code: `function twoSum(nums: number[], target: number): number[] {
-  const map = new Map<number, number>()
-  for (let i = 0; i < nums.length; i++) {
-    const need = target - nums[i]
-    if (map.has(need)) return [map.get(need)!, i]
-    map.set(nums[i], i)
-  }
-  return []
+    code: `class Solution {
+    public int[] twoSum(int[] nums, int target) {
+        Map<Integer, Integer> map = new HashMap<>();
+        for (int i = 0; i < nums.length; i++) {
+            int need = target - nums[i];
+            if (map.containsKey(need)) return new int[]{map.get(need), i};
+            map.put(nums[i], i);
+        }
+        return new int[]{};
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(n)'
@@ -37,14 +39,17 @@ export const problems: Problem[] = [
     tags: ['哈希', '字符串', '排序'],
     description: '给你一个字符串数组，请你将字母异位词组合在一起。可以按任意顺序返回结果列表。',
     approach: '把每个字符串排序后作为 key 存入哈希表，相同 key 的归为一组。也可用长度 26 的计数数组作为 key。',
-    code: `function groupAnagrams(strs: string[]): string[][] {
-  const map = new Map<string, string[]>()
-  for (const s of strs) {
-    const key = [...s].sort().join('')
-    if (!map.has(key)) map.set(key, [])
-    map.get(key)!.push(s)
-  }
-  return [...map.values()]
+    code: `class Solution {
+    public List<List<String>> groupAnagrams(String[] strs) {
+        Map<String, List<String>> map = new HashMap<>();
+        for (String s : strs) {
+            char[] cs = s.toCharArray();
+            Arrays.sort(cs);
+            String key = new String(cs);
+            map.computeIfAbsent(key, k -> new ArrayList<>()).add(s);
+        }
+        return new ArrayList<>(map.values());
+    }
 }`,
     timeComplexity: 'O(n·k log k)',
     spaceComplexity: 'O(n·k)'
@@ -57,16 +62,19 @@ export const problems: Problem[] = [
     tags: ['哈希', '并查集'],
     description: '给定一个未排序的整数数组 nums，找出数字连续的最长序列（不要求序列元素在原数组中连续）的长度。要求时间复杂度 O(n)。',
     approach: '把所有数放入 Set。遍历每个数 x，仅当 x-1 不在 Set 时（说明 x 是序列起点）开始向后计数，避免重复枚举。',
-    code: `function longestConsecutive(nums: number[]): number {
-  const set = new Set(nums)
-  let best = 0
-  for (const x of set) {
-    if (set.has(x - 1)) continue
-    let cur = x, len = 1
-    while (set.has(cur + 1)) { cur++; len++ }
-    best = Math.max(best, len)
-  }
-  return best
+    code: `class Solution {
+    public int longestConsecutive(int[] nums) {
+        Set<Integer> set = new HashSet<>();
+        for (int x : nums) set.add(x);
+        int best = 0;
+        for (int x : set) {
+            if (set.contains(x - 1)) continue;
+            int cur = x, len = 1;
+            while (set.contains(cur + 1)) { cur++; len++; }
+            best = Math.max(best, len);
+        }
+        return best;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(n)'
@@ -81,14 +89,18 @@ export const problems: Problem[] = [
     tags: ['双指针', '数组'],
     description: '给定一个数组 nums，编写一个函数将所有 0 移动到数组的末尾，同时保持非零元素的相对顺序。必须在原地操作。',
     approach: '快慢指针：慢指针指向下一个非零应放位置，快指针扫描数组；遇到非零元素与慢指针交换并推进慢指针。',
-    code: `function moveZeroes(nums: number[]): void {
-  let slow = 0
-  for (let fast = 0; fast < nums.length; fast++) {
-    if (nums[fast] !== 0) {
-      [nums[slow], nums[fast]] = [nums[fast], nums[slow]]
-      slow++
+    code: `class Solution {
+    public void moveZeroes(int[] nums) {
+        int slow = 0;
+        for (int fast = 0; fast < nums.length; fast++) {
+            if (nums[fast] != 0) {
+                int tmp = nums[slow];
+                nums[slow] = nums[fast];
+                nums[fast] = tmp;
+                slow++;
+            }
+        }
     }
-  }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -101,14 +113,17 @@ export const problems: Problem[] = [
     tags: ['双指针', '贪心'],
     description: '给定 n 个非负整数，每个数代表一根垂线的高度。找出两条线，使它们与 x 轴共同构成的容器可以容纳最多的水。',
     approach: '左右指针向中间收缩，每次移动较矮的那一侧（移动较高一侧不可能让面积变大）。',
-    code: `function maxArea(height: number[]): number {
-  let l = 0, r = height.length - 1, best = 0
-  while (l < r) {
-    const area = Math.min(height[l], height[r]) * (r - l)
-    best = Math.max(best, area)
-    height[l] < height[r] ? l++ : r--
-  }
-  return best
+    code: `class Solution {
+    public int maxArea(int[] height) {
+        int l = 0, r = height.length - 1, best = 0;
+        while (l < r) {
+            int area = Math.min(height[l], height[r]) * (r - l);
+            best = Math.max(best, area);
+            if (height[l] < height[r]) l++;
+            else r--;
+        }
+        return best;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -121,24 +136,26 @@ export const problems: Problem[] = [
     tags: ['双指针', '排序'],
     description: '给你一个整数数组 nums，判断是否存在三元组 [a,b,c] 使得 a+b+c=0，并返回所有不重复的三元组。',
     approach: '排序后固定第一个数 i，剩下两个数用左右双指针在 [i+1, n-1] 中寻找；过程中跳过相同值去重。',
-    code: `function threeSum(nums: number[]): number[][] {
-  nums.sort((a, b) => a - b)
-  const res: number[][] = []
-  for (let i = 0; i < nums.length - 2; i++) {
-    if (i > 0 && nums[i] === nums[i - 1]) continue
-    let l = i + 1, r = nums.length - 1
-    while (l < r) {
-      const s = nums[i] + nums[l] + nums[r]
-      if (s === 0) {
-        res.push([nums[i], nums[l], nums[r]])
-        while (l < r && nums[l] === nums[l + 1]) l++
-        while (l < r && nums[r] === nums[r - 1]) r--
-        l++; r--
-      } else if (s < 0) l++
-      else r--
+    code: `class Solution {
+    public List<List<Integer>> threeSum(int[] nums) {
+        Arrays.sort(nums);
+        List<List<Integer>> res = new ArrayList<>();
+        for (int i = 0; i < nums.length - 2; i++) {
+            if (i > 0 && nums[i] == nums[i - 1]) continue;
+            int l = i + 1, r = nums.length - 1;
+            while (l < r) {
+                int s = nums[i] + nums[l] + nums[r];
+                if (s == 0) {
+                    res.add(Arrays.asList(nums[i], nums[l], nums[r]));
+                    while (l < r && nums[l] == nums[l + 1]) l++;
+                    while (l < r && nums[r] == nums[r - 1]) r--;
+                    l++; r--;
+                } else if (s < 0) l++;
+                else r--;
+            }
+        }
+        return res;
     }
-  }
-  return res
 }`,
     timeComplexity: 'O(n²)',
     spaceComplexity: 'O(log n)'
@@ -151,21 +168,23 @@ export const problems: Problem[] = [
     tags: ['双指针', '动态规划', '单调栈'],
     description: '给定 n 个非负整数表示每个宽度为 1 的柱子的高度图，计算按此排列的柱子下雨之后能接多少雨水。',
     approach: '左右双指针 + 维护两侧最大值：哪边高度小，就由该侧主导，将其侧的最大高度减去当前高度累加进答案。',
-    code: `function trap(height: number[]): number {
-  let l = 0, r = height.length - 1
-  let lMax = 0, rMax = 0, ans = 0
-  while (l < r) {
-    if (height[l] < height[r]) {
-      lMax = Math.max(lMax, height[l])
-      ans += lMax - height[l]
-      l++
-    } else {
-      rMax = Math.max(rMax, height[r])
-      ans += rMax - height[r]
-      r--
+    code: `class Solution {
+    public int trap(int[] height) {
+        int l = 0, r = height.length - 1;
+        int lMax = 0, rMax = 0, ans = 0;
+        while (l < r) {
+            if (height[l] < height[r]) {
+                lMax = Math.max(lMax, height[l]);
+                ans += lMax - height[l];
+                l++;
+            } else {
+                rMax = Math.max(rMax, height[r]);
+                ans += rMax - height[r];
+                r--;
+            }
+        }
+        return ans;
     }
-  }
-  return ans
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -180,15 +199,18 @@ export const problems: Problem[] = [
     tags: ['滑动窗口', '哈希'],
     description: '给定一个字符串 s，请你找出其中不含有重复字符的最长子串的长度。',
     approach: '滑动窗口 + 哈希表记录字符上次出现位置；右指针每次推进，若字符在窗口内出现，则把左指针跳到上次位置之后。',
-    code: `function lengthOfLongestSubstring(s: string): number {
-  const last = new Map<string, number>()
-  let l = 0, best = 0
-  for (let r = 0; r < s.length; r++) {
-    if (last.has(s[r]) && last.get(s[r])! >= l) l = last.get(s[r])! + 1
-    last.set(s[r], r)
-    best = Math.max(best, r - l + 1)
-  }
-  return best
+    code: `class Solution {
+    public int lengthOfLongestSubstring(String s) {
+        Map<Character, Integer> last = new HashMap<>();
+        int l = 0, best = 0;
+        for (int r = 0; r < s.length(); r++) {
+            char c = s.charAt(r);
+            if (last.containsKey(c) && last.get(c) >= l) l = last.get(c) + 1;
+            last.put(c, r);
+            best = Math.max(best, r - l + 1);
+        }
+        return best;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(min(n,Σ))'
@@ -201,22 +223,23 @@ export const problems: Problem[] = [
     tags: ['滑动窗口', '哈希'],
     description: '给定两个字符串 s 和 p，找到 s 中所有 p 的字母异位词的子串，返回这些子串的起始索引。',
     approach: '固定大小为 |p| 的滑动窗口，比较窗口内字母频次数组与 p 的频次数组是否相等。',
-    code: `function findAnagrams(s: string, p: string): number[] {
-  if (s.length < p.length) return []
-  const cs = new Array(26).fill(0), cp = new Array(26).fill(0)
-  const A = 'a'.charCodeAt(0)
-  for (let i = 0; i < p.length; i++) {
-    cp[p.charCodeAt(i) - A]++
-    cs[s.charCodeAt(i) - A]++
-  }
-  const res: number[] = []
-  if (cs.every((v, i) => v === cp[i])) res.push(0)
-  for (let i = p.length; i < s.length; i++) {
-    cs[s.charCodeAt(i) - A]++
-    cs[s.charCodeAt(i - p.length) - A]--
-    if (cs.every((v, j) => v === cp[j])) res.push(i - p.length + 1)
-  }
-  return res
+    code: `class Solution {
+    public List<Integer> findAnagrams(String s, String p) {
+        if (s.length() < p.length()) return new ArrayList<>();
+        int[] cs = new int[26], cp = new int[26];
+        for (int i = 0; i < p.length(); i++) {
+            cp[p.charAt(i) - 'a']++;
+            cs[s.charAt(i) - 'a']++;
+        }
+        List<Integer> res = new ArrayList<>();
+        if (Arrays.equals(cs, cp)) res.add(0);
+        for (int i = p.length(); i < s.length(); i++) {
+            cs[s.charAt(i) - 'a']++;
+            cs[s.charAt(i - p.length()) - 'a']--;
+            if (Arrays.equals(cs, cp)) res.add(i - p.length() + 1);
+        }
+        return res;
+    }
 }`,
     timeComplexity: 'O(n·Σ)',
     spaceComplexity: 'O(Σ)'
@@ -231,15 +254,18 @@ export const problems: Problem[] = [
     tags: ['前缀和', '哈希'],
     description: '给你一个整数数组 nums 和一个整数 k，请你统计并返回该数组中和为 k 的连续子数组的个数。',
     approach: '前缀和 + 哈希：枚举右端点，累加前缀和 sum，若 sum-k 出现过则说明存在以当前位置结尾的子数组。',
-    code: `function subarraySum(nums: number[], k: number): number {
-  const cnt = new Map<number, number>([[0, 1]])
-  let sum = 0, ans = 0
-  for (const x of nums) {
-    sum += x
-    ans += cnt.get(sum - k) ?? 0
-    cnt.set(sum, (cnt.get(sum) ?? 0) + 1)
-  }
-  return ans
+    code: `class Solution {
+    public int subarraySum(int[] nums, int k) {
+        Map<Integer, Integer> cnt = new HashMap<>();
+        cnt.put(0, 1);
+        int sum = 0, ans = 0;
+        for (int x : nums) {
+            sum += x;
+            ans += cnt.getOrDefault(sum - k, 0);
+            cnt.put(sum, cnt.getOrDefault(sum, 0) + 1);
+        }
+        return ans;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(n)'
@@ -252,15 +278,18 @@ export const problems: Problem[] = [
     tags: ['滑动窗口', '单调队列'],
     description: '给你一个整数数组 nums，有一个大小为 k 的滑动窗口从数组的最左侧移动到最右侧。返回每次窗口中的最大值。',
     approach: '单调递减双端队列：队首即当前窗口最大值；新元素入队前从队尾弹出更小的；队首过期则出队。',
-    code: `function maxSlidingWindow(nums: number[], k: number): number[] {
-  const dq: number[] = [], res: number[] = []
-  for (let i = 0; i < nums.length; i++) {
-    while (dq.length && nums[dq[dq.length - 1]] <= nums[i]) dq.pop()
-    dq.push(i)
-    if (dq[0] <= i - k) dq.shift()
-    if (i >= k - 1) res.push(nums[dq[0]])
-  }
-  return res
+    code: `class Solution {
+    public int[] maxSlidingWindow(int[] nums, int k) {
+        Deque<Integer> dq = new ArrayDeque<>();
+        int[] res = new int[nums.length - k + 1];
+        for (int i = 0; i < nums.length; i++) {
+            while (!dq.isEmpty() && nums[dq.peekLast()] <= nums[i]) dq.pollLast();
+            dq.offerLast(i);
+            if (dq.peekFirst() <= i - k) dq.pollFirst();
+            if (i >= k - 1) res[i - k + 1] = nums[dq.peekFirst()];
+        }
+        return res;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(k)'
@@ -273,21 +302,25 @@ export const problems: Problem[] = [
     tags: ['滑动窗口', '哈希'],
     description: '给你一个字符串 s 和一个字符串 t。返回 s 中涵盖 t 所有字符的最小子串。',
     approach: '滑动窗口 + 计数：右扩直到包含 t 全部字符；再左缩至刚好不满足，用一个 need 计数器衡量是否仍满足。',
-    code: `function minWindow(s: string, t: string): string {
-  const need = new Map<string, number>()
-  for (const c of t) need.set(c, (need.get(c) ?? 0) + 1)
-  let missing = t.length, l = 0, start = 0, len = Infinity
-  for (let r = 0; r < s.length; r++) {
-    if ((need.get(s[r]) ?? 0) > 0) missing--
-    need.set(s[r], (need.get(s[r]) ?? 0) - 1)
-    while (missing === 0) {
-      if (r - l + 1 < len) { len = r - l + 1; start = l }
-      need.set(s[l], (need.get(s[l]) ?? 0) + 1)
-      if ((need.get(s[l]) ?? 0) > 0) missing++
-      l++
+    code: `class Solution {
+    public String minWindow(String s, String t) {
+        Map<Character, Integer> need = new HashMap<>();
+        for (char c : t.toCharArray()) need.merge(c, 1, Integer::sum);
+        int missing = t.length(), l = 0, start = 0, len = Integer.MAX_VALUE;
+        for (int r = 0; r < s.length(); r++) {
+            char c = s.charAt(r);
+            if (need.getOrDefault(c, 0) > 0) missing--;
+            need.merge(c, -1, Integer::sum);
+            while (missing == 0) {
+                if (r - l + 1 < len) { len = r - l + 1; start = l; }
+                char lc = s.charAt(l);
+                need.merge(lc, 1, Integer::sum);
+                if (need.get(lc) > 0) missing++;
+                l++;
+            }
+        }
+        return len == Integer.MAX_VALUE ? "" : s.substring(start, start + len);
     }
-  }
-  return len === Infinity ? '' : s.slice(start, start + len)
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(Σ)'
@@ -302,13 +335,15 @@ export const problems: Problem[] = [
     tags: ['动态规划', '分治'],
     description: '给你一个整数数组 nums，请你找出一个具有最大和的连续子数组（子数组最少包含一个元素），返回其最大和。',
     approach: 'Kadane 算法：dp[i] 表示以 i 结尾的最大和，dp[i] = max(dp[i-1]+nums[i], nums[i])。',
-    code: `function maxSubArray(nums: number[]): number {
-  let cur = nums[0], best = nums[0]
-  for (let i = 1; i < nums.length; i++) {
-    cur = Math.max(cur + nums[i], nums[i])
-    best = Math.max(best, cur)
-  }
-  return best
+    code: `class Solution {
+    public int maxSubArray(int[] nums) {
+        int cur = nums[0], best = nums[0];
+        for (int i = 1; i < nums.length; i++) {
+            cur = Math.max(cur + nums[i], nums[i]);
+            best = Math.max(best, cur);
+        }
+        return best;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -321,15 +356,17 @@ export const problems: Problem[] = [
     tags: ['排序', '数组'],
     description: '以数组 intervals 表示若干个区间的集合，请你合并所有重叠的区间，并返回一个不重叠的区间数组。',
     approach: '按起点排序，依次比较当前区间与结果末尾区间：可合并则更新右端，否则追加。',
-    code: `function merge(intervals: number[][]): number[][] {
-  intervals.sort((a, b) => a[0] - b[0])
-  const res: number[][] = []
-  for (const [s, e] of intervals) {
-    if (res.length && res[res.length - 1][1] >= s) {
-      res[res.length - 1][1] = Math.max(res[res.length - 1][1], e)
-    } else res.push([s, e])
-  }
-  return res
+    code: `class Solution {
+    public int[][] merge(int[][] intervals) {
+        Arrays.sort(intervals, (a, b) -> a[0] - b[0]);
+        List<int[]> res = new ArrayList<>();
+        for (int[] iv : intervals) {
+            if (!res.isEmpty() && res.get(res.size() - 1)[1] >= iv[0]) {
+                res.get(res.size() - 1)[1] = Math.max(res.get(res.size() - 1)[1], iv[1]);
+            } else res.add(iv);
+        }
+        return res.toArray(new int[0][]);
+    }
 }`,
     timeComplexity: 'O(n log n)',
     spaceComplexity: 'O(log n)'
@@ -342,14 +379,19 @@ export const problems: Problem[] = [
     tags: ['数组', '双指针'],
     description: '给定一个整数数组 nums，将数组中的元素向右轮转 k 个位置，其中 k 是非负数。',
     approach: '三次反转法：先整体反转，再反转前 k 个，再反转后 n-k 个。',
-    code: `function rotate(nums: number[], k: number): void {
-  k %= nums.length
-  const reverse = (l: number, r: number) => {
-    while (l < r) { [nums[l], nums[r]] = [nums[r], nums[l]]; l++; r-- }
-  }
-  reverse(0, nums.length - 1)
-  reverse(0, k - 1)
-  reverse(k, nums.length - 1)
+    code: `class Solution {
+    public void rotate(int[] nums, int k) {
+        k %= nums.length;
+        reverse(nums, 0, nums.length - 1);
+        reverse(nums, 0, k - 1);
+        reverse(nums, k, nums.length - 1);
+    }
+    private void reverse(int[] nums, int l, int r) {
+        while (l < r) {
+            int tmp = nums[l]; nums[l] = nums[r]; nums[r] = tmp;
+            l++; r--;
+        }
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -362,15 +404,19 @@ export const problems: Problem[] = [
     tags: ['数组', '前缀积'],
     description: '给你一个整数数组 nums，返回数组 answer，其中 answer[i] 等于 nums 中除 nums[i] 之外其余元素的乘积。要求 O(n) 且不使用除法。',
     approach: '两次遍历：先把左侧前缀积写入 answer；再用变量从右往左维护右侧后缀积乘进 answer[i]。',
-    code: `function productExceptSelf(nums: number[]): number[] {
-  const n = nums.length, res = new Array(n).fill(1)
-  for (let i = 1; i < n; i++) res[i] = res[i - 1] * nums[i - 1]
-  let right = 1
-  for (let i = n - 1; i >= 0; i--) {
-    res[i] *= right
-    right *= nums[i]
-  }
-  return res
+    code: `class Solution {
+    public int[] productExceptSelf(int[] nums) {
+        int n = nums.length;
+        int[] res = new int[n];
+        Arrays.fill(res, 1);
+        for (int i = 1; i < n; i++) res[i] = res[i - 1] * nums[i - 1];
+        int right = 1;
+        for (int i = n - 1; i >= 0; i--) {
+            res[i] *= right;
+            right *= nums[i];
+        }
+        return res;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -383,16 +429,18 @@ export const problems: Problem[] = [
     tags: ['数组', '原地哈希'],
     description: '给你一个未排序的整数数组 nums，请你找出其中没有出现的最小的正整数。要求时间 O(n) 空间 O(1)。',
     approach: '原地哈希：把每个值 v∈[1,n] 交换到下标 v-1 处；最后扫描，第一个不匹配的位置即为答案。',
-    code: `function firstMissingPositive(nums: number[]): number {
-  const n = nums.length
-  for (let i = 0; i < n; i++) {
-    while (nums[i] >= 1 && nums[i] <= n && nums[nums[i] - 1] !== nums[i]) {
-      const j = nums[i] - 1
-      ;[nums[i], nums[j]] = [nums[j], nums[i]]
+    code: `class Solution {
+    public int firstMissingPositive(int[] nums) {
+        int n = nums.length;
+        for (int i = 0; i < n; i++) {
+            while (nums[i] >= 1 && nums[i] <= n && nums[nums[i] - 1] != nums[i]) {
+                int j = nums[i] - 1;
+                int tmp = nums[i]; nums[i] = nums[j]; nums[j] = tmp;
+            }
+        }
+        for (int i = 0; i < n; i++) if (nums[i] != i + 1) return i + 1;
+        return n + 1;
     }
-  }
-  for (let i = 0; i < n; i++) if (nums[i] !== i + 1) return i + 1
-  return n + 1
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -407,19 +455,21 @@ export const problems: Problem[] = [
     tags: ['矩阵'],
     description: '给定一个 m x n 的矩阵，如果某个元素为 0，则将其所在行和列的所有元素都设为 0。请使用原地算法。',
     approach: '使用首行首列作为标记位；先单独记录首行首列是否需置零，再遍历内部用首行首列标记，最后回写。',
-    code: `function setZeroes(matrix: number[][]): void {
-  const m = matrix.length, n = matrix[0].length
-  let firstRow = false, firstCol = false
-  for (let j = 0; j < n; j++) if (matrix[0][j] === 0) firstRow = true
-  for (let i = 0; i < m; i++) if (matrix[i][0] === 0) firstCol = true
-  for (let i = 1; i < m; i++)
-    for (let j = 1; j < n; j++)
-      if (matrix[i][j] === 0) { matrix[i][0] = 0; matrix[0][j] = 0 }
-  for (let i = 1; i < m; i++)
-    for (let j = 1; j < n; j++)
-      if (matrix[i][0] === 0 || matrix[0][j] === 0) matrix[i][j] = 0
-  if (firstRow) for (let j = 0; j < n; j++) matrix[0][j] = 0
-  if (firstCol) for (let i = 0; i < m; i++) matrix[i][0] = 0
+    code: `class Solution {
+    public void setZeroes(int[][] matrix) {
+        int m = matrix.length, n = matrix[0].length;
+        boolean firstRow = false, firstCol = false;
+        for (int j = 0; j < n; j++) if (matrix[0][j] == 0) firstRow = true;
+        for (int i = 0; i < m; i++) if (matrix[i][0] == 0) firstCol = true;
+        for (int i = 1; i < m; i++)
+            for (int j = 1; j < n; j++)
+                if (matrix[i][j] == 0) { matrix[i][0] = 0; matrix[0][j] = 0; }
+        for (int i = 1; i < m; i++)
+            for (int j = 1; j < n; j++)
+                if (matrix[i][0] == 0 || matrix[0][j] == 0) matrix[i][j] = 0;
+        if (firstRow) for (int j = 0; j < n; j++) matrix[0][j] = 0;
+        if (firstCol) for (int i = 0; i < m; i++) matrix[i][0] = 0;
+    }
 }`,
     timeComplexity: 'O(mn)',
     spaceComplexity: 'O(1)'
@@ -432,24 +482,26 @@ export const problems: Problem[] = [
     tags: ['矩阵', '模拟'],
     description: '给你一个 m 行 n 列的矩阵 matrix，请按照顺时针螺旋顺序，返回矩阵中的所有元素。',
     approach: '维护四条边界 top/bottom/left/right，按右→下→左→上顺序逐圈遍历；每完成一边收缩对应边界。',
-    code: `function spiralOrder(matrix: number[][]): number[] {
-  const res: number[] = []
-  let t = 0, b = matrix.length - 1, l = 0, r = matrix[0].length - 1
-  while (t <= b && l <= r) {
-    for (let j = l; j <= r; j++) res.push(matrix[t][j])
-    t++
-    for (let i = t; i <= b; i++) res.push(matrix[i][r])
-    r--
-    if (t <= b) {
-      for (let j = r; j >= l; j--) res.push(matrix[b][j])
-      b--
+    code: `class Solution {
+    public List<Integer> spiralOrder(int[][] matrix) {
+        List<Integer> res = new ArrayList<>();
+        int t = 0, b = matrix.length - 1, l = 0, r = matrix[0].length - 1;
+        while (t <= b && l <= r) {
+            for (int j = l; j <= r; j++) res.add(matrix[t][j]);
+            t++;
+            for (int i = t; i <= b; i++) res.add(matrix[i][r]);
+            r--;
+            if (t <= b) {
+                for (int j = r; j >= l; j--) res.add(matrix[b][j]);
+                b--;
+            }
+            if (l <= r) {
+                for (int i = b; i >= t; i--) res.add(matrix[i][l]);
+                l++;
+            }
+        }
+        return res;
     }
-    if (l <= r) {
-      for (let i = b; i >= t; i--) res.push(matrix[i][l])
-      l++
-    }
-  }
-  return res
 }`,
     timeComplexity: 'O(mn)',
     spaceComplexity: 'O(1)'
@@ -462,12 +514,18 @@ export const problems: Problem[] = [
     tags: ['矩阵'],
     description: '给定一个 n × n 的二维矩阵表示一个图像，请你将图像顺时针旋转 90 度，必须原地修改。',
     approach: '先沿主对角线转置，再左右翻转每一行，即等价于顺时针 90°。',
-    code: `function rotate(matrix: number[][]): void {
-  const n = matrix.length
-  for (let i = 0; i < n; i++)
-    for (let j = i + 1; j < n; j++)
-      [matrix[i][j], matrix[j][i]] = [matrix[j][i], matrix[i][j]]
-  for (const row of matrix) row.reverse()
+    code: `class Solution {
+    public void rotate(int[][] matrix) {
+        int n = matrix.length;
+        for (int i = 0; i < n; i++)
+            for (int j = i + 1; j < n; j++) {
+                int tmp = matrix[i][j]; matrix[i][j] = matrix[j][i]; matrix[j][i] = tmp;
+            }
+        for (int[] row : matrix) {
+            int l = 0, r = row.length - 1;
+            while (l < r) { int tmp = row[l]; row[l] = row[r]; row[r] = tmp; l++; r--; }
+        }
+    }
 }`,
     timeComplexity: 'O(n²)',
     spaceComplexity: 'O(1)'
@@ -480,14 +538,16 @@ export const problems: Problem[] = [
     tags: ['矩阵', '二分'],
     description: '编写一个高效的算法来搜索 m x n 矩阵中的一个目标值 target。该矩阵每行从左到右递增，每列从上到下递增。',
     approach: '从右上角开始：当前值 > target 则左移，< target 则下移，相等则命中。',
-    code: `function searchMatrix(matrix: number[][], target: number): boolean {
-  let i = 0, j = matrix[0].length - 1
-  while (i < matrix.length && j >= 0) {
-    if (matrix[i][j] === target) return true
-    if (matrix[i][j] > target) j--
-    else i++
-  }
-  return false
+    code: `class Solution {
+    public boolean searchMatrix(int[][] matrix, int target) {
+        int i = 0, j = matrix[0].length - 1;
+        while (i < matrix.length && j >= 0) {
+            if (matrix[i][j] == target) return true;
+            if (matrix[i][j] > target) j--;
+            else i++;
+        }
+        return false;
+    }
 }`,
     timeComplexity: 'O(m+n)',
     spaceComplexity: 'O(1)'
@@ -502,13 +562,15 @@ export const problems: Problem[] = [
     tags: ['链表', '双指针'],
     description: '给你两个单链表的头节点 headA 和 headB，请你找出并返回两个单链表相交的起始节点。如果不存在则返回 null。',
     approach: '双指针走 a+b 等长路径：A 走完接 B，B 走完接 A，相遇点即为交点（或同时为 null）。',
-    code: `function getIntersectionNode(headA: any, headB: any): any {
-  let a = headA, b = headB
-  while (a !== b) {
-    a = a ? a.next : headB
-    b = b ? b.next : headA
-  }
-  return a
+    code: `public class Solution {
+    public ListNode getIntersectionNode(ListNode headA, ListNode headB) {
+        ListNode a = headA, b = headB;
+        while (a != b) {
+            a = a != null ? a.next : headB;
+            b = b != null ? b.next : headA;
+        }
+        return a;
+    }
 }`,
     timeComplexity: 'O(m+n)',
     spaceComplexity: 'O(1)'
@@ -521,15 +583,17 @@ export const problems: Problem[] = [
     tags: ['链表'],
     description: '给你单链表的头节点 head，请你反转链表，并返回反转后的链表。',
     approach: '迭代：维护 prev、cur 指针，依次断开当前节点 next，指向 prev，再前移。',
-    code: `function reverseList(head: any): any {
-  let prev = null, cur = head
-  while (cur) {
-    const next = cur.next
-    cur.next = prev
-    prev = cur
-    cur = next
-  }
-  return prev
+    code: `class Solution {
+    public ListNode reverseList(ListNode head) {
+        ListNode prev = null, cur = head;
+        while (cur != null) {
+            ListNode next = cur.next;
+            cur.next = prev;
+            prev = cur;
+            cur = next;
+        }
+        return prev;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -542,14 +606,16 @@ export const problems: Problem[] = [
     tags: ['链表', '双指针'],
     description: '给你一个单链表的头节点 head，请你判断该链表是否为回文链表。要求 O(n) 时间和 O(1) 空间。',
     approach: '快慢指针找中点 → 反转后半段 → 双指针比较前后两半。',
-    code: `function isPalindrome(head: any): boolean {
-  let slow = head, fast = head
-  while (fast && fast.next) { slow = slow.next; fast = fast.next.next }
-  let prev = null, cur = slow
-  while (cur) { const n = cur.next; cur.next = prev; prev = cur; cur = n }
-  let l = head, r = prev
-  while (r) { if (l.val !== r.val) return false; l = l.next; r = r.next }
-  return true
+    code: `class Solution {
+    public boolean isPalindrome(ListNode head) {
+        ListNode slow = head, fast = head;
+        while (fast != null && fast.next != null) { slow = slow.next; fast = fast.next.next; }
+        ListNode prev = null, cur = slow;
+        while (cur != null) { ListNode n = cur.next; cur.next = prev; prev = cur; cur = n; }
+        ListNode l = head, r = prev;
+        while (r != null) { if (l.val != r.val) return false; l = l.next; r = r.next; }
+        return true;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -562,14 +628,16 @@ export const problems: Problem[] = [
     tags: ['链表', '双指针'],
     description: '给你一个链表的头节点 head，判断链表中是否有环。',
     approach: 'Floyd 快慢指针：快指针每次走两步，慢指针走一步；若有环必相遇。',
-    code: `function hasCycle(head: any): boolean {
-  let slow = head, fast = head
-  while (fast && fast.next) {
-    slow = slow.next
-    fast = fast.next.next
-    if (slow === fast) return true
-  }
-  return false
+    code: `public class Solution {
+    public boolean hasCycle(ListNode head) {
+        ListNode slow = head, fast = head;
+        while (fast != null && fast.next != null) {
+            slow = slow.next;
+            fast = fast.next.next;
+            if (slow == fast) return true;
+        }
+        return false;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -582,18 +650,20 @@ export const problems: Problem[] = [
     tags: ['链表', '双指针'],
     description: '给定一个链表的头节点 head，返回链表开始入环的第一个节点。如果链表无环，返回 null。',
     approach: 'Floyd 算法：相遇后将一个指针放回头，与原慢指针同速前进，再次相遇处即为环入口。',
-    code: `function detectCycle(head: any): any {
-  let slow = head, fast = head
-  while (fast && fast.next) {
-    slow = slow.next
-    fast = fast.next.next
-    if (slow === fast) {
-      let p = head
-      while (p !== slow) { p = p.next; slow = slow.next }
-      return p
+    code: `public class Solution {
+    public ListNode detectCycle(ListNode head) {
+        ListNode slow = head, fast = head;
+        while (fast != null && fast.next != null) {
+            slow = slow.next;
+            fast = fast.next.next;
+            if (slow == fast) {
+                ListNode p = head;
+                while (p != slow) { p = p.next; slow = slow.next; }
+                return p;
+            }
+        }
+        return null;
     }
-  }
-  return null
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -606,16 +676,17 @@ export const problems: Problem[] = [
     tags: ['链表', '递归'],
     description: '将两个升序链表合并为一个新的升序链表并返回。新链表是通过拼接给定的两个链表的所有节点组成的。',
     approach: '哨兵节点 + 双指针：哪个小哪个先接到尾部；最后接上剩余部分。',
-    code: `function mergeTwoLists(l1: any, l2: any): any {
-  const dummy: any = { next: null }
-  let cur = dummy
-  while (l1 && l2) {
-    if (l1.val <= l2.val) { cur.next = l1; l1 = l1.next }
-    else { cur.next = l2; l2 = l2.next }
-    cur = cur.next
-  }
-  cur.next = l1 ?? l2
-  return dummy.next
+    code: `class Solution {
+    public ListNode mergeTwoLists(ListNode l1, ListNode l2) {
+        ListNode dummy = new ListNode(0), cur = dummy;
+        while (l1 != null && l2 != null) {
+            if (l1.val <= l2.val) { cur.next = l1; l1 = l1.next; }
+            else { cur.next = l2; l2 = l2.next; }
+            cur = cur.next;
+        }
+        cur.next = l1 != null ? l1 : l2;
+        return dummy.next;
+    }
 }`,
     timeComplexity: 'O(m+n)',
     spaceComplexity: 'O(1)'
@@ -628,17 +699,20 @@ export const problems: Problem[] = [
     tags: ['链表', '数学'],
     description: '给你两个非空的链表，表示两个非负整数。它们每位数字都是按照逆序的方式存储，每个节点只能存储一位数字。请你将两个数相加，并以链表形式返回。',
     approach: '同位相加并维护进位，按位生成新节点；处理两链表长度不一致以及末尾进位。',
-    code: `function addTwoNumbers(l1: any, l2: any): any {
-  const dummy: any = { next: null }
-  let cur = dummy, carry = 0
-  while (l1 || l2 || carry) {
-    const s = (l1?.val ?? 0) + (l2?.val ?? 0) + carry
-    carry = Math.floor(s / 10)
-    cur.next = { val: s % 10, next: null }
-    cur = cur.next
-    l1 = l1?.next; l2 = l2?.next
-  }
-  return dummy.next
+    code: `class Solution {
+    public ListNode addTwoNumbers(ListNode l1, ListNode l2) {
+        ListNode dummy = new ListNode(0), cur = dummy;
+        int carry = 0;
+        while (l1 != null || l2 != null || carry != 0) {
+            int s = (l1 != null ? l1.val : 0) + (l2 != null ? l2.val : 0) + carry;
+            carry = s / 10;
+            cur.next = new ListNode(s % 10);
+            cur = cur.next;
+            if (l1 != null) l1 = l1.next;
+            if (l2 != null) l2 = l2.next;
+        }
+        return dummy.next;
+    }
 }`,
     timeComplexity: 'O(max(m,n))',
     spaceComplexity: 'O(1)'
@@ -651,13 +725,15 @@ export const problems: Problem[] = [
     tags: ['链表', '双指针'],
     description: '给你一个链表，删除链表的倒数第 n 个结点，并返回链表的头结点。',
     approach: '哨兵 + 快慢指针：快指针先走 n+1 步，再两指针同步，快指针到尾时慢指针正好在待删节点前。',
-    code: `function removeNthFromEnd(head: any, n: number): any {
-  const dummy: any = { next: head }
-  let fast: any = dummy, slow: any = dummy
-  for (let i = 0; i <= n; i++) fast = fast.next
-  while (fast) { fast = fast.next; slow = slow.next }
-  slow.next = slow.next.next
-  return dummy.next
+    code: `class Solution {
+    public ListNode removeNthFromEnd(ListNode head, int n) {
+        ListNode dummy = new ListNode(0, head);
+        ListNode fast = dummy, slow = dummy;
+        for (int i = 0; i <= n; i++) fast = fast.next;
+        while (fast != null) { fast = fast.next; slow = slow.next; }
+        slow.next = slow.next.next;
+        return dummy.next;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
@@ -670,15 +746,17 @@ export const problems: Problem[] = [
     tags: ['链表', '递归'],
     description: '给你一个链表，两两交换其中相邻的节点，并返回交换后链表的头节点。',
     approach: '哨兵节点 + 三指针：每轮处理两个节点，调整 prev、a、b 三者的指针。',
-    code: `function swapPairs(head: any): any {
-  const dummy: any = { next: head }
-  let prev = dummy
-  while (prev.next && prev.next.next) {
-    const a = prev.next, b = a.next
-    a.next = b.next; b.next = a; prev.next = b
-    prev = a
-  }
-  return dummy.next
+    code: `class Solution {
+    public ListNode swapPairs(ListNode head) {
+        ListNode dummy = new ListNode(0, head);
+        ListNode prev = dummy;
+        while (prev.next != null && prev.next.next != null) {
+            ListNode a = prev.next, b = a.next;
+            a.next = b.next; b.next = a; prev.next = b;
+            prev = a;
+        }
+        return dummy.next;
+    }
 }`,
     timeComplexity: 'O(n)',
     spaceComplexity: 'O(1)'
