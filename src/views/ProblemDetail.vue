@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useProblemsStore } from '@/stores/problems'
 import { useProgressStore } from '@/stores/progress'
+import { problems as staticProblems } from '@/data/problems'
 import ProblemFormModal from '@/components/ProblemFormModal.vue'
 import type { Difficulty, Problem } from '@/types/problem'
 
@@ -50,6 +51,45 @@ const showApproach = ref(false)
 const showCode = ref(false)
 const codeFullscreen = ref(false)
 const userDraft = ref('')
+
+// ── 参考代码编辑 ──
+const editingCode = ref(false)
+const codeDraft = ref('')
+
+function startEditCode() {
+  codeDraft.value = problem.value?.code ?? ''
+  editingCode.value = true
+  showCode.value = true
+}
+function saveCode() {
+  if (!problem.value) return
+  const updated: Problem = { ...problem.value, code: codeDraft.value }
+  problemsStore.updateProblem(updated)
+  editingCode.value = false
+  ElMessage.success('参考代码已保存')
+}
+function cancelEditCode() {
+  editingCode.value = false
+}
+
+const originalCode = computed(() => {
+  if (!problem.value) return ''
+  return staticProblems.find((p) => p.id === problem.value!.id)?.code ?? ''
+})
+const isBuiltIn = computed(() => problem.value ? staticProblems.some((p) => p.id === problem.value!.id) : false)
+
+async function restoreCode() {
+  if (!problem.value) return
+  await ElMessageBox.confirm('将还原参考代码为内置原始内容，确认吗？', '还原确认', {
+    confirmButtonText: '确认还原',
+    cancelButtonText: '取消',
+    type: 'warning',
+  })
+  const updated: Problem = { ...problem.value, code: originalCode.value }
+  problemsStore.updateProblem(updated)
+  editingCode.value = false
+  ElMessage.success('参考代码已还原')
+}
 
 // ── 记忆笔记 ──
 const NOTE_PREFIX = 'hot100-note-'
@@ -131,8 +171,43 @@ watch(() => route.params.id, (rawId) => {
 }, { immediate: true })
 
 const DRAFT_PREFIX = 'hot100-draft-'
+
+/** 从 Java 参考代码中提取方法定义（签名 + 空方法体） */
+function extractMethodSignatures(code: string): string {
+  if (!code) return ''
+  const lines = code.split('\n')
+  let inBody = false
+  const signatures: string[] = []
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim()
+    // 跳过 class 声明
+    if (/^(public\s+)?(class|interface|enum)\s/.test(t)) { inBody = true; continue }
+    if (!inBody) continue
+    // 匹配方法定义：必须以 public/private/protected 开头
+    if (/^(public|private|protected)\s/.test(t)) {
+      const clean = t.replace(/\{.*$/, '').trim()
+      // 同一行带 { 的方法签名
+      if (t.includes('{') && clean.includes('(')) {
+        signatures.push(clean + ' {')
+        signatures.push('}')
+        signatures.push('')
+      }
+      // 跨行签名：签名在本行，{ 在下一行
+      else if (clean.includes('(') && i + 1 < lines.length && lines[i + 1].trim() === '{') {
+        signatures.push(clean + ' {')
+        signatures.push('}')
+        signatures.push('')
+      }
+    }
+  }
+  return signatures.join('\n').trimEnd()
+}
+
 function loadDraft(id: number): string {
-  return localStorage.getItem(DRAFT_PREFIX + id) ?? ''
+  const saved = localStorage.getItem(DRAFT_PREFIX + id)
+  if (saved) return saved
+  const p = problemsStore.allProblems.find((p) => p.id === id)
+  return p ? extractMethodSignatures(p.code) : ''
 }
 function saveDraft() {
   if (problem.value) {
@@ -358,21 +433,52 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
       <div class="section-header">
         <span>🧩 参考代码</span>
         <div class="section-actions">
-          <button
-            v-if="showCode"
-            class="small-btn"
-            @click="codeFullscreen = true"
-            title="全屏查看"
-          >⛶ 全屏</button>
-          <button
-            :class="['reveal-btn', showCode ? 'reveal-btn--hide' : 'reveal-btn--show']"
-            @click="showCode = !showCode"
-          >
-            {{ showCode ? '隐藏' : '显示' }}
-          </button>
+          <!-- 编辑模式 -->
+          <template v-if="editingCode">
+            <button class="small-btn small-btn--primary" @click="saveCode">保存</button>
+            <button class="small-btn" @click="cancelEditCode">取消</button>
+          </template>
+          <!-- 查看模式 -->
+          <template v-else>
+            <button
+              v-if="showCode"
+              class="small-btn"
+              @click="startEditCode"
+            >✏️ 编辑</button>
+            <button
+              v-if="showCode && isBuiltIn"
+              class="small-btn small-btn--danger"
+              @click="restoreCode"
+              title="还原为内置原始代码"
+            >↩ 还原</button>
+            <button
+              v-if="showCode"
+              class="small-btn"
+              @click="codeFullscreen = true"
+              title="全屏查看"
+            >⛶ 全屏</button>
+            <button
+              :class="['reveal-btn', showCode ? 'reveal-btn--hide' : 'reveal-btn--show']"
+              @click="showCode = !showCode"
+            >
+              {{ showCode ? '隐藏' : '显示' }}
+            </button>
+          </template>
         </div>
       </div>
-      <div class="section-body code-body" v-if="showCode">
+      <!-- 编辑模式 -->
+      <div v-if="editingCode" class="section-body">
+        <el-input
+          v-model="codeDraft"
+          type="textarea"
+          :rows="12"
+          placeholder="粘贴参考代码..."
+          resize="vertical"
+          class="code-textarea"
+        />
+      </div>
+      <!-- 查看模式 -->
+      <div class="section-body code-body" v-else-if="showCode">
         <pre class="code-block"><code>{{ problem.code || '// 暂无参考代码' }}</code></pre>
       </div>
       <div class="section-body" v-else>
@@ -709,6 +815,16 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   overflow-x: auto;
   white-space: pre;
   -webkit-overflow-scrolling: touch;
+}
+
+/* 代码编辑 textarea */
+.code-textarea :deep(.el-textarea__inner) {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-color: #1e293b;
 }
 
 /* 遮挡块 */
