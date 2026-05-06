@@ -6,12 +6,17 @@ import { useProblemsStore } from '@/stores/problems'
 import { useProgressStore } from '@/stores/progress'
 import { problems as staticProblems } from '@/data/problems'
 import ProblemFormModal from '@/components/ProblemFormModal.vue'
+import { Codemirror } from 'vue-codemirror'
+import { java } from '@codemirror/lang-java'
+import { oneDark } from '@codemirror/theme-one-dark'
 import type { Difficulty, Problem } from '@/types/problem'
 
 const route = useRoute()
 const router = useRouter()
 const problemsStore = useProblemsStore()
 const progress = useProgressStore()
+
+const cmExtensions = [java(), oneDark]
 
 const problem = shallowRef<Problem | null>(null)
 
@@ -217,8 +222,8 @@ function saveDraft() {
 }
 function clearDraft() {
   if (problem.value) {
-    userDraft.value = ''
     localStorage.removeItem(DRAFT_PREFIX + problem.value.id)
+    userDraft.value = extractMethodSignatures(problem.value.code)
   }
 }
 
@@ -340,13 +345,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
           <button class="small-btn" @click="clearDraft">清空</button>
         </div>
       </div>
-      <div class="section-body">
-        <el-input
+      <div class="section-body draft-editor-wrap">
+        <Codemirror
           v-model="userDraft"
-          type="textarea"
-          :rows="8"
+          :extensions="cmExtensions"
+          :style="{ height: '260px' }"
           placeholder="在这里默写你的解法 / 关键思路..."
-          resize="vertical"
+          :tab="true"
         />
       </div>
     </section>
@@ -736,6 +741,20 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 }
 .section-body {
   padding: 12px 14px;
+}
+
+/* 默写区 CodeMirror 容器 */
+.draft-editor-wrap {
+  padding: 0;
+  overflow: hidden;
+  border-radius: 0 0 10px 10px;
+}
+.draft-editor-wrap :deep(.cm-editor) {
+  height: 100%;
+  font-size: 13px;
+}
+.draft-editor-wrap :deep(.cm-scroller) {
+  font-family: 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
 }
 
 /* 显示/隐藏按钮 */
