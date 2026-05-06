@@ -8,6 +8,8 @@ import { problems as staticProblems } from '@/data/problems'
 import ProblemFormModal from '@/components/ProblemFormModal.vue'
 import { Codemirror } from 'vue-codemirror'
 import { java } from '@codemirror/lang-java'
+import { indentUnit } from '@codemirror/language'
+import { EditorState } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
 import type { Difficulty, Problem } from '@/types/problem'
 
@@ -16,7 +18,7 @@ const router = useRouter()
 const problemsStore = useProblemsStore()
 const progress = useProgressStore()
 
-const cmExtensions = [java(), oneDark]
+const cmExtensions = [java(), oneDark, EditorState.tabSize.of(4), indentUnit.of('    ')]
 
 const problem = shallowRef<Problem | null>(null)
 
