@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useProblemsStore } from '@/stores/problems'
 import { useProgressStore } from '@/stores/progress'
 import ProblemFormModal from '@/components/ProblemFormModal.vue'
+import { exportData, importData } from '@/utils/dataIO'
 import type { Difficulty, Problem } from '@/types/problem'
 import type { MasteryStatus } from '@/stores/progress'
 
@@ -66,7 +67,7 @@ function openProblem(id: number) {
 }
 
 function randomPick() {
-  const pool = filtered.value.length ? filtered.value : problems
+  const pool = filtered.value.length ? filtered.value : problems.value
   const target = pool[Math.floor(Math.random() * pool.length)]
   ElMessage.success(`随机：${target.id}. ${target.title}`)
   router.push({ name: 'detail', params: { id: String(target.id) } })
@@ -88,6 +89,39 @@ function clearFilters() {
   selectedDifficulty.value = ''
   selectedTags.value = []
   selectedStatus.value = ''
+}
+
+// ── 导入 / 导出 ──
+const fileInputRef = ref<HTMLInputElement | null>(null)
+
+function handleExport() {
+  exportData()
+  ElMessage.success('备份文件已下载')
+}
+
+function triggerImport() {
+  fileInputRef.value?.click()
+}
+
+async function handleImport(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  ;(e.target as HTMLInputElement).value = '' // 重置，允许重复选同一文件
+
+  try {
+    await ElMessageBox.confirm(
+      '导入将覆盖当前所有本地数据（进度、笔记、草稿、自定义题目），确定继续？',
+      '导入确认',
+      { confirmButtonText: '确定导入', cancelButtonText: '取消', type: 'warning' }
+    )
+    const { count } = await importData(file)
+    ElMessage.success(`已导入 ${count} 条数据，页面刷新中…`)
+    setTimeout(() => location.reload(), 600)
+  } catch (err) {
+    if (err !== 'cancel') {
+      ElMessage.error((err as Error).message)
+    }
+  }
 }
 
 function quickToggleStatus(e: Event, id: number) {
@@ -163,6 +197,13 @@ const statsBar = computed(() => {
       <button class="add-problem-btn" @click="showFormModal = true">
         ＋ 新增题目
       </button>
+
+      <!-- 导入 / 导出 -->
+      <div class="data-io-row">
+        <button class="io-btn io-btn--export" @click="handleExport">📤 导出备份</button>
+        <button class="io-btn io-btn--import" @click="triggerImport">📥 导入备份</button>
+        <input ref="fileInputRef" type="file" accept=".json" hidden @change="handleImport" />
+      </div>
     </div>
 
     <!-- 题目卡片列表（替换 el-table，移动端友好） -->
@@ -325,6 +366,40 @@ const statsBar = computed(() => {
 }
 .add-problem-btn:active {
   background: #dbeafe;
+}
+
+/* 导入/导出行 */
+.data-io-row {
+  display: flex;
+  gap: 8px;
+}
+.io-btn {
+  flex: 1;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1.5px solid #e5e7eb;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.io-btn:active {
+  background: #f3f4f6;
+}
+.io-btn--export {
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+.io-btn--export:active {
+  background: #e0f2fe;
+}
+.io-btn--import {
+  color: #15803d;
+  border-color: #a7f3d0;
+}
+.io-btn--import:active {
+  background: #dcfce7;
 }
 
 /* 序号 */

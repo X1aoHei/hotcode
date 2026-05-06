@@ -59,7 +59,11 @@ watch(
     if (!val) return
     activeTab.value = 'basic'
     if (props.problem) {
-      form.value = { ...props.problem }
+      form.value = {
+        ...props.problem,
+        timeComplexity: props.problem.timeComplexity ?? '',
+        spaceComplexity: props.problem.spaceComplexity ?? '',
+      }
     } else {
       form.value = emptyForm()
     }
