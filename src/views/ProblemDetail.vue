@@ -37,7 +37,13 @@ syncProblem()
 watch(() => route.params.id, syncProblem)
 
 // 用户编辑/删除/新增题目后同步
-watch(() => problemsStore.allProblems, syncProblem)
+watch(() => problemsStore.allProblems, () => {
+  syncProblem()
+  // 编辑弹窗保存后，用最新的 problem.draft 同步默写区
+  if (problem.value) {
+    userDraft.value = getDefaultDraft(problem.value)
+  }
+})
 
 // ── 编辑弹窗 ──
 const showEditModal = ref(false)
