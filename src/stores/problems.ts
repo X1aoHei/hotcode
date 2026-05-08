@@ -78,7 +78,7 @@ export const useProblemsStore = defineStore('problems', () => {
       userData.value.modified = { ...userData.value.modified, [p.id]: p }
     } else {
       const idx = userData.value.added.findIndex((ap) => ap.id === p.id)
-      if (idx >= 0) userData.value.added[idx] = p
+      if (idx >= 0) userData.value.added.splice(idx, 1, p)
     }
     persist()
   }
