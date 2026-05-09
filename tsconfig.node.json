@@ -7,8 +7,8 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "strict": true,
-    "lib": ["ES2020"],
-    "types": ["@cloudflare/workers-types"]
+    "lib": ["ES2020", "ES2015.Iterable", "ES2018.AsyncIterable"],
+    "types": ["@cloudflare/workers-types", "node"]
   },
   "include": ["vite.config.ts", "worker/**/*.ts"]
 }

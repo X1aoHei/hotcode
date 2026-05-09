@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "CLOUDFLARE_CF_FETCH_ENABLED=false vite",
     "build": "vue-tsc -b && vite build",
     "preview": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"
@@ -26,9 +26,10 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.36.0",
     "@cloudflare/workers-types": "^4.20260509.1",
-    "@vitejs/plugin-vue": "^6.0.6",
+    "@types/node": "^25.6.2",
+    "@vitejs/plugin-vue": "5.2.4",
     "typescript": "^5.4.5",
-    "vite": "^6.4.2",
+    "vite": "~6.3.7",
     "vue-tsc": "^2.0.26",
     "wrangler": "^4.88.0"
   }
