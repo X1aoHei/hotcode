@@ -1,9 +1,8 @@
 /**
- * 导入 / 导出本地配置
- *
- * 收集 localStorage 中所有 hot100 相关 key，打包为 JSON 文件供下载；
- * 也可从 JSON 文件恢复，写回 localStorage 后刷新页面生效。
+ * 导入 / 导出 — 通过 API 与 D1 数据库交互
  */
+
+import { api } from '@/api/client'
 
 export interface ExportPayload {
   version: 1
@@ -11,31 +10,9 @@ export interface ExportPayload {
   data: Record<string, unknown>
 }
 
-const PREFIX = 'hot100-'
-
-/** 收集 localStorage 中所有 hot100-* 的 key-value */
-function collectData(): Record<string, unknown> {
-  const data: Record<string, unknown> = {}
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key && key.startsWith(PREFIX)) {
-      try {
-        data[key] = JSON.parse(localStorage.getItem(key)!)
-      } catch {
-        data[key] = localStorage.getItem(key)
-      }
-    }
-  }
-  return data
-}
-
-/** 导出：生成 JSON 文件并下载 */
-export function exportData(): void {
-  const payload: ExportPayload = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    data: collectData(),
-  }
+/** 导出：从 API 获取全部数据并下载为 JSON 文件 */
+export async function exportData(): Promise<void> {
+  const payload = await api.exportAll()
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: 'application/json',
@@ -52,45 +29,62 @@ export function exportData(): void {
   URL.revokeObjectURL(url)
 }
 
-/** 导入：从 JSON 文件读取并写入 localStorage，然后刷新页面 */
-export function importData(file: File): Promise<{ count: number }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
+/** 导入：从 JSON 文件读取并发送到 API */
+export async function importData(file: File): Promise<{ count: number }> {
+  const text = await file.text()
+  const payload = JSON.parse(text) as ExportPayload
 
-    reader.onerror = () => reject(new Error('文件读取失败'))
+  if (payload.version !== 1 || !payload.data) {
+    throw new Error('文件格式不正确，请确认是本工具导出的备份文件')
+  }
 
-    reader.onload = () => {
+  const result = await api.importAll(payload.data)
+  return { count: result.count }
+}
+
+/** 从 localStorage 迁移到 D1（首次使用时调用） */
+export async function migrateFromLocalStorage(): Promise<boolean> {
+  const MIGRATE_FLAG = 'hot100-migrated-to-d1'
+  if (localStorage.getItem(MIGRATE_FLAG)) return false
+
+  // 收集 localStorage 中所有 hot100-* 的数据
+  const data: Record<string, unknown> = {}
+  const PREFIX = 'hot100-'
+  let hasData = false
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith(PREFIX) && key !== MIGRATE_FLAG) {
+      hasData = true
       try {
-        const payload = JSON.parse(reader.result as string) as ExportPayload
-
-        if (payload.version !== 1 || !payload.data) {
-          return reject(new Error('文件格式不正确，请确认是本工具导出的备份文件'))
-        }
-
-        // 先清除旧数据
-        const keysToRemove: string[] = []
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i)
-          if (key && key.startsWith(PREFIX)) keysToRemove.push(key)
-        }
-        keysToRemove.forEach((k) => localStorage.removeItem(k))
-
-        // 写入新数据
-        let count = 0
-        for (const [key, value] of Object.entries(payload.data)) {
-          localStorage.setItem(
-            key,
-            typeof value === 'string' ? value : JSON.stringify(value)
-          )
-          count++
-        }
-
-        resolve({ count })
-      } catch (e) {
-        reject(new Error('文件解析失败：' + (e as Error).message))
+        data[key] = JSON.parse(localStorage.getItem(key)!)
+      } catch {
+        data[key] = localStorage.getItem(key)
       }
     }
+  }
 
-    reader.readAsText(file)
-  })
+  if (!hasData) {
+    // 没有旧数据，直接标记已迁移
+    localStorage.setItem(MIGRATE_FLAG, '1')
+    return false
+  }
+
+  try {
+    await api.migrateFromLocalStorage(data)
+    localStorage.setItem(MIGRATE_FLAG, '1')
+    // 清理旧数据
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(PREFIX) && key !== MIGRATE_FLAG) {
+        keysToRemove.push(key)
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k))
+    return true
+  } catch (e) {
+    console.error('迁移失败:', e)
+    throw new Error('数据迁移失败，请稍后重试')
+  }
 }

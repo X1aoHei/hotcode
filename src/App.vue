@@ -1,12 +1,35 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useProgressStore } from '@/stores/progress'
 import { useProblemsStore } from '@/stores/problems'
+import { migrateFromLocalStorage } from '@/utils/dataIO'
 
 const router = useRouter()
 const progress = useProgressStore()
 const problemsStore = useProblemsStore()
+
+const appReady = ref(false)
+
+onMounted(async () => {
+  // 首次使用：尝试从 localStorage 迁移数据到 D1
+  try {
+    const migrated = await migrateFromLocalStorage()
+    if (migrated) {
+      ElMessage.success('本地数据已迁移到云端')
+    }
+  } catch (e) {
+    console.error('迁移失败:', e)
+    ElMessage.warning('本地数据迁移失败，将使用云端数据')
+  }
+
+  await Promise.all([
+    problemsStore.init(),
+    progress.init(),
+  ])
+  appReady.value = true
+})
 
 const total = computed(() => problemsStore.allProblems.length)
 const masteryRate = computed(() =>
@@ -19,7 +42,11 @@ function goHome() {
 </script>
 
 <template>
-  <div class="app-root">
+  <div v-if="!appReady" class="app-loading">
+    <div class="loading-spinner" />
+    <span class="loading-text">加载数据中...</span>
+  </div>
+  <div v-else class="app-root">
     <header class="app-header">
       <div class="brand" @click="goHome">
         <span class="brand-logo">LC</span>
@@ -48,6 +75,32 @@ function goHome() {
 </template>
 
 <style scoped>
+/* ── 加载状态 ── */
+.app-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 16px;
+  background: #f6f8fa;
+}
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.loading-text {
+  font-size: 14px;
+  color: #6b7280;
+}
+
 .app-root {
   min-height: 100vh;
   display: flex;

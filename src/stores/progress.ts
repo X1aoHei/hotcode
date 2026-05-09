@@ -1,46 +1,46 @@
 import { defineStore } from 'pinia'
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
+import { api } from '@/api/client'
+import { ElMessage } from 'element-plus'
 
-/** 每道题的掌握状态 */
 export type MasteryStatus = 'unseen' | 'learning' | 'mastered'
 
-interface ProgressState {
-  /** key = 题号，value = 状态 */
-  status: Record<number, MasteryStatus>
-  /** 上次查看时间戳 */
-  lastViewed: Record<number, number>
-}
-
-const STORAGE_KEY = 'hot100-progress-v1'
-
-function load(): ProgressState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { status: {}, lastViewed: {} }
-    return JSON.parse(raw)
-  } catch {
-    return { status: {}, lastViewed: {} }
-  }
-}
-
 export const useProgressStore = defineStore('progress', () => {
-  const initial = load()
-  const status = ref<Record<number, MasteryStatus>>(initial.status ?? {})
-  const lastViewed = ref<Record<number, number>>(initial.lastViewed ?? {})
+  const status = ref<Record<number, MasteryStatus>>({})
+  const lastViewed = ref<Record<number, number>>({})
 
-  watch(
-    [status, lastViewed],
-    () => {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ status: status.value, lastViewed: lastViewed.value })
-      )
-    },
-    { deep: true }
-  )
+  async function init() {
+    try {
+      const data = await api.getProgress()
+      const s: Record<number, MasteryStatus> = {}
+      const lv: Record<number, number> = {}
+      for (const [idStr, rec] of Object.entries(data)) {
+        const id = Number(idStr)
+        s[id] = rec.status as MasteryStatus
+        lv[id] = rec.lastViewed
+      }
+      status.value = s
+      lastViewed.value = lv
+    } catch (e) {
+      console.error('加载进度数据失败:', e)
+      ElMessage.error('加载进度数据失败，请刷新重试')
+    }
+  }
 
   function setStatus(id: number, s: MasteryStatus) {
+    const prev = status.value[id]
     status.value = { ...status.value, [id]: s }
+    api.updateProgress(id, { status: s }).catch((e) => {
+      // 回滚
+      if (prev) {
+        status.value = { ...status.value, [id]: prev }
+      } else {
+        const { [id]: _, ...rest } = status.value
+        status.value = rest
+      }
+      ElMessage.error('更新状态失败')
+      console.error(e)
+    })
   }
 
   function getStatus(id: number): MasteryStatus {
@@ -48,12 +48,20 @@ export const useProgressStore = defineStore('progress', () => {
   }
 
   function markViewed(id: number) {
-    lastViewed.value = { ...lastViewed.value, [id]: Date.now() }
+    const now = Date.now()
+    lastViewed.value = { ...lastViewed.value, [id]: now }
+    api.updateProgress(id, { lastViewed: now }).catch((e) => {
+      console.error('更新查看时间失败:', e)
+    })
   }
 
   function reset() {
     status.value = {}
     lastViewed.value = {}
+    api.resetProgress().catch((e) => {
+      ElMessage.error('重置进度失败')
+      console.error(e)
+    })
   }
 
   const stats = computed(() => {
@@ -64,5 +72,5 @@ export const useProgressStore = defineStore('progress', () => {
     }
   })
 
-  return { status, lastViewed, setStatus, getStatus, markViewed, reset, stats }
+  return { status, lastViewed, init, setStatus, getStatus, markViewed, reset, stats }
 })

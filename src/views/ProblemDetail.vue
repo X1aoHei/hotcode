@@ -6,6 +6,7 @@ import { useProblemsStore } from '@/stores/problems'
 import { useProgressStore } from '@/stores/progress'
 import { problems as staticProblems } from '@/data/problems'
 import { extractMethodSignatures } from '@/utils/code'
+import { useProblemContent } from '@/composables/useProblemContent'
 import ProblemFormModal from '@/components/ProblemFormModal.vue'
 import { Codemirror } from 'vue-codemirror'
 import { java } from '@codemirror/lang-java'
@@ -36,12 +37,37 @@ syncProblem()
 // 切题时同步（上一题 / 下一题）
 watch(() => route.params.id, syncProblem)
 
+// ── 笔记 + 草稿（composable） ──
+
+function getDefaultDraftForId(id: number): string {
+  const p = problemsStore.allProblems.find((p) => p.id === id)
+  return p ? (p.draft || extractMethodSignatures(p.code)) : ''
+}
+
+const {
+  noteContent,
+  noteDraft,
+  editingNote,
+  userDraft,
+  startEditNote,
+  cancelEditNote,
+  saveNote,
+  deleteNote,
+  saveDraft,
+  clearDraft,
+} = useProblemContent(
+  computed(() => problem.value?.id ?? 0),
+  getDefaultDraftForId
+)
+
+const hasNote = computed(() => noteContent.value.trim().length > 0)
+
 // 用户编辑/删除/新增题目后同步
 watch(() => problemsStore.allProblems, () => {
   syncProblem()
   // 编辑弹窗保存后，用最新的 problem.draft 同步默写区
   if (problem.value) {
-    userDraft.value = getDefaultDraft(problem.value)
+    userDraft.value = problem.value.draft || extractMethodSignatures(problem.value.code)
   }
 })
 
@@ -66,7 +92,6 @@ async function handleDelete() {
 const showApproach = ref(false)
 const showCode = ref(false)
 const codeFullscreen = ref(false)
-const userDraft = ref('')
 
 // ── 参考代码编辑 ──
 const editingCode = ref(false)
@@ -107,42 +132,6 @@ async function restoreCode() {
   ElMessage.success('参考代码已还原')
 }
 
-// ── 记忆笔记 ──
-const NOTE_PREFIX = 'hot100-note-'
-const noteContent = ref('')     // 当前已保存的笔记
-const noteDraft = ref('')       // 编辑中的草稿
-const editingNote = ref(false)  // 是否处于编辑模式
-const hasNote = computed(() => noteContent.value.trim().length > 0)
-
-function loadNote(id: number) {
-  noteContent.value = localStorage.getItem(NOTE_PREFIX + id) ?? ''
-  noteDraft.value = noteContent.value
-  editingNote.value = false
-}
-function saveNote() {
-  if (!problem.value) return
-  noteContent.value = noteDraft.value
-  localStorage.setItem(NOTE_PREFIX + problem.value.id, noteDraft.value)
-  editingNote.value = false
-  ElMessage.success('笔记已保存')
-}
-function startEditNote() {
-  noteDraft.value = noteContent.value
-  editingNote.value = true
-}
-function cancelEditNote() {
-  noteDraft.value = noteContent.value
-  editingNote.value = false
-}
-function deleteNote() {
-  if (!problem.value) return
-  noteContent.value = ''
-  noteDraft.value = ''
-  localStorage.removeItem(NOTE_PREFIX + problem.value.id)
-  editingNote.value = false
-  ElMessage.success('笔记已删除')
-}
-
 /** 代码字号（全屏模式下双指缩放） */
 const codeFontSize = ref(13)
 
@@ -175,52 +164,14 @@ function onTouchMove(e: TouchEvent) {
   }
 }
 
-// 切题时重置 UI 状态（immediate 确保首次加载也执行）
+// 切题时重置 UI 状态
 watch(() => route.params.id, (rawId) => {
   const id = Number(rawId)
   if (!id) return
   showApproach.value = false
   showCode.value = false
-  userDraft.value = loadDraft(id)
-  loadNote(id)
   progress.markViewed(id)
 }, { immediate: true })
-
-const DRAFT_PREFIX = 'hot100-draft-'
-
-function getDefaultDraft(p: Problem): string {
-  return p.draft || extractMethodSignatures(p.code)
-}
-
-function loadDraft(id: number): string {
-  const saved = localStorage.getItem(DRAFT_PREFIX + id)
-  if (saved) return saved
-  const p = problemsStore.allProblems.find((p) => p.id === id)
-  return p ? getDefaultDraft(p) : ''
-}
-// ── 默写区自动暂存（防抖） ──
-let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
-watch(userDraft, () => {
-  if (autoSaveTimer) clearTimeout(autoSaveTimer)
-  autoSaveTimer = setTimeout(() => {
-    if (problem.value) {
-      localStorage.setItem(DRAFT_PREFIX + problem.value.id, userDraft.value)
-    }
-  }, 800)
-})
-
-function saveDraft() {
-  if (problem.value) {
-    localStorage.setItem(DRAFT_PREFIX + problem.value.id, userDraft.value)
-    ElMessage.success('草稿已保存')
-  }
-}
-function clearDraft() {
-  if (problem.value) {
-    localStorage.removeItem(DRAFT_PREFIX + problem.value.id)
-    userDraft.value = getDefaultDraft(problem.value)
-  }
-}
 
 const prevId = computed(() => {
   if (!problem.value) return null
