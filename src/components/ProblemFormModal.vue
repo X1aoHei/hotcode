@@ -216,7 +216,7 @@ async function handleReset() {
                 </div>
                 <div class="field field--diff">
                   <label class="field-label">难度 <em>*</em></label>
-                  <el-select v-model="form.difficulty" style="width:100%">
+                  <el-select v-model="form.difficulty" style="width:100%" popper-class="form-modal-popper">
                     <el-option
                       v-for="d in ['Easy','Medium','Hard']"
                       :key="d" :label="d" :value="d"
@@ -246,6 +246,7 @@ async function handleReset() {
                   default-first-option
                   placeholder="选择或输入后回车新增"
                   style="width:100%"
+                  popper-class="form-modal-popper"
                 >
                   <el-option
                     v-for="t in tagOptions"
@@ -575,5 +576,10 @@ async function handleReset() {
     height: min(82vh, 760px);
     border-radius: 12px;
   }
+}
+
+/* 下拉弹出层 z-index 需高于模态框遮罩 (2100) */
+:global(.form-modal-popper) {
+  z-index: 2200 !important;
 }
 </style>
