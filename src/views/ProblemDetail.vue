@@ -323,6 +323,17 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
       </div>
     </div>
 
+    <!-- 错题集 -->
+    <div class="wrong-set-card">
+      <span class="wrong-set-label">错题集</span>
+      <button
+        :class="['wrong-set-btn', { 'wrong-set-btn--active': progress.isWrong(problem.id) }]"
+        @click="progress.toggleWrong(problem.id)"
+      >
+        {{ progress.isWrong(problem.id) ? '✓ 已加入错题集' : '+ 加入错题集' }}
+      </button>
+    </div>
+
     <!-- 题目描述 -->
     <section class="section-card">
       <div class="section-header">
@@ -721,6 +732,47 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 .status-btn--unseen.active   { border-color: #94a3b8; background: #f1f5f9; color: #475569; font-weight: 600; }
 .status-btn--learning.active { border-color: #f59e0b; background: #fef9c3; color: #b45309; font-weight: 600; }
 .status-btn--mastered.active { border-color: #22c55e; background: #dcfce7; color: #15803d; font-weight: 600; }
+
+/* ── 错题集卡 ── */
+.wrong-set-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.wrong-set-label {
+  font-size: 13px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+.wrong-set-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1.5px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-height: 38px;
+  -webkit-tap-highlight-color: transparent;
+}
+.wrong-set-btn:active {
+  background: #f3f4f6;
+}
+.wrong-set-btn--active {
+  border-color: #ef4444;
+  background: #fee2e2;
+  color: #dc2626;
+  font-weight: 600;
+}
+.wrong-set-btn--active:active {
+  background: #fecaca;
+}
 
 /* ── 内容 section ── */
 .section-card {
