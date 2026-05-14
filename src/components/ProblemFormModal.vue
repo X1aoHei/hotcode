@@ -177,7 +177,7 @@ async function handleReset() {
 <template>
   <teleport to="body">
     <transition name="modal">
-      <div v-if="visible" class="form-overlay" @click.self="emit('close')">
+      <div v-if="visible" class="form-overlay">
         <div class="form-panel">
 
           <!-- 头部 -->
