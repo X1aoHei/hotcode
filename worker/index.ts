@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 import { Hono } from 'hono'
 import {
+  migrate,
   getUserProblems,
   upsertProblem,
   deleteProblem,
@@ -8,6 +9,10 @@ import {
   getProgress,
   updateProgress,
   resetProgress,
+  getWrongSet,
+  addWrong,
+  removeWrong,
+  toggleWrong,
   getContent,
   updateContent,
   deleteContent,
@@ -20,6 +25,16 @@ type Bindings = {
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
+
+// ── 自动建表（每次部署后首次请求触发，幂等） ──
+let migrated = false
+app.use('*', async (c, next) => {
+  if (!migrated) {
+    await migrate(c.env.DB)
+    migrated = true
+  }
+  await next()
+})
 
 // ── 用户题目数据 ──
 
@@ -71,6 +86,25 @@ app.put('/api/progress/:id', async (c) => {
 
 app.delete('/api/progress', async (c) => {
   await resetProgress(c.env.DB)
+  return c.json({ ok: true })
+})
+
+// ── 错题集 ──
+
+app.get('/api/wrong-set', async (c) => {
+  const data = await getWrongSet(c.env.DB)
+  return c.json(data)
+})
+
+app.post('/api/wrong-set/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  const isWrong = await toggleWrong(c.env.DB, id)
+  return c.json({ ok: true, isWrong })
+})
+
+app.delete('/api/wrong-set/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  await removeWrong(c.env.DB, id)
   return c.json({ ok: true })
 })
 

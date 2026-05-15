@@ -3,6 +3,47 @@
  * D1 数据库查询封装层
  */
 
+/** 自动建表（幂等，可重复执行） */
+export async function migrate(db: D1Database): Promise<void> {
+  await db.batch([
+    db.prepare(`CREATE TABLE IF NOT EXISTS user_problems (
+      problem_id       INTEGER PRIMARY KEY,
+      title            TEXT NOT NULL,
+      slug             TEXT NOT NULL DEFAULT '',
+      difficulty       TEXT NOT NULL DEFAULT 'Medium',
+      tags             TEXT NOT NULL DEFAULT '[]',
+      description      TEXT NOT NULL DEFAULT '',
+      approach         TEXT NOT NULL DEFAULT '',
+      code             TEXT NOT NULL DEFAULT '',
+      time_complexity  TEXT,
+      space_complexity TEXT,
+      draft            TEXT,
+      is_custom        INTEGER NOT NULL DEFAULT 0,
+      created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS deleted_problems (
+      problem_id  INTEGER PRIMARY KEY,
+      deleted_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS progress (
+      problem_id  INTEGER PRIMARY KEY,
+      status      TEXT NOT NULL DEFAULT 'unseen',
+      last_viewed INTEGER NOT NULL DEFAULT 0
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS problem_content (
+      problem_id INTEGER PRIMARY KEY,
+      note       TEXT,
+      draft      TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS wrong_set (
+      problem_id  INTEGER PRIMARY KEY,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    )`),
+  ])
+}
+
 interface Problem {
   id: number
   title: string
@@ -132,6 +173,32 @@ export async function resetProgress(db: D1Database): Promise<void> {
   await db.prepare('DELETE FROM progress').run()
 }
 
+// ── 错题集 ──
+
+export async function getWrongSet(db: D1Database): Promise<number[]> {
+  const { results } = await db.prepare('SELECT problem_id FROM wrong_set').all()
+  return (results ?? []).map((r) => r.problem_id as number)
+}
+
+export async function addWrong(db: D1Database, id: number): Promise<void> {
+  await db.prepare('INSERT OR IGNORE INTO wrong_set (problem_id) VALUES (?)').bind(id).run()
+}
+
+export async function removeWrong(db: D1Database, id: number): Promise<void> {
+  await db.prepare('DELETE FROM wrong_set WHERE problem_id = ?').bind(id).run()
+}
+
+export async function toggleWrong(db: D1Database, id: number): Promise<boolean> {
+  const existing = await db.prepare('SELECT 1 FROM wrong_set WHERE problem_id = ?').bind(id).first()
+  if (existing) {
+    await db.prepare('DELETE FROM wrong_set WHERE problem_id = ?').bind(id).run()
+    return false
+  } else {
+    await db.prepare('INSERT INTO wrong_set (problem_id) VALUES (?)').bind(id).run()
+    return true
+  }
+}
+
 export async function getContent(db: D1Database, id: number): Promise<ContentRecord> {
   const row = await db.prepare('SELECT note, draft FROM problem_content WHERE problem_id = ?').bind(id).first()
   return {
@@ -206,6 +273,7 @@ export async function importAll(db: D1Database, payload: Record<string, unknown>
   stmts.push(db.prepare('DELETE FROM deleted_problems'))
   stmts.push(db.prepare('DELETE FROM progress'))
   stmts.push(db.prepare('DELETE FROM problem_content'))
+  stmts.push(db.prepare('DELETE FROM wrong_set'))
 
   let count = 0
 
@@ -246,6 +314,11 @@ export async function importAll(db: D1Database, payload: Record<string, unknown>
         stmts.push(db.prepare(
           `INSERT INTO problem_content (problem_id, note) VALUES (?, ?) ON CONFLICT(problem_id) DO UPDATE SET note=excluded.note`
         ).bind(id, typeof value === 'string' ? value : JSON.stringify(value)))
+        count++
+      }
+    } else if (key === 'hot100-wrong-set' && Array.isArray(value)) {
+      for (const id of value) {
+        stmts.push(db.prepare('INSERT OR IGNORE INTO wrong_set (problem_id) VALUES (?)').bind(id))
         count++
       }
     } else if (key.startsWith('hot100-draft-')) {

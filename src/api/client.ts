@@ -70,6 +70,20 @@ export const api = {
     return request('/progress', { method: 'DELETE' })
   },
 
+  // ── 错题集 ──
+
+  getWrongSet(): Promise<number[]> {
+    return request('/wrong-set')
+  },
+
+  toggleWrong(id: number): Promise<{ ok: boolean; isWrong: boolean }> {
+    return request(`/wrong-set/${id}`, { method: 'POST' })
+  },
+
+  removeWrong(id: number): Promise<{ ok: boolean }> {
+    return request(`/wrong-set/${id}`, { method: 'DELETE' })
+  },
+
   // ── 笔记 + 草稿 ──
 
   getContent(id: number): Promise<{ note: string; draft: string }> {

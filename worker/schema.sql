@@ -36,3 +36,9 @@ CREATE TABLE IF NOT EXISTS problem_content (
   draft      TEXT,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- 错题集
+CREATE TABLE IF NOT EXISTS wrong_set (
+  problem_id  INTEGER PRIMARY KEY,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
