@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useProblemsStore } from '@/stores/problems'
 import { useProgressStore } from '@/stores/progress'
+import { useGroupsStore } from '@/stores/groups'
 import ProblemFormModal from '@/components/ProblemFormModal.vue'
 import { exportData, importData } from '@/utils/dataIO'
 import type { Difficulty, Problem } from '@/types/problem'
@@ -12,6 +13,7 @@ import type { MasteryStatus } from '@/stores/progress'
 const router = useRouter()
 const problemsStore = useProblemsStore()
 const progress = useProgressStore()
+const groupsStore = useGroupsStore()
 
 const problems = computed(() => problemsStore.allProblems)
 const allTags = computed(() => problemsStore.allTags)
@@ -75,6 +77,10 @@ function statusLabel(s: MasteryStatus) {
   if (s === 'mastered') return '已掌握'
   if (s === 'learning') return '学习中'
   return '未学习'
+}
+
+function getGroupCount(problemId: number): number {
+  return groupsStore.getGroupsByProblemId(problemId).length
 }
 
 function openProblem(id: number) {
@@ -247,6 +253,7 @@ const statsBar = computed(() => {
           <span class="item-id">{{ p.id }}</span>
           <span v-if="problemsStore.isCustom(p.id)" class="item-badge badge-custom" title="自定义题目">自</span>
           <span v-else-if="problemsStore.isModified(p.id)" class="item-badge badge-modified" title="已修改">改</span>
+          <span v-if="getGroupCount(p.id) > 0" class="item-badge badge-group" :title="`属于 ${getGroupCount(p.id)} 个组合`">组{{ getGroupCount(p.id) }}</span>
         </div>
         <div class="item-body">
           <div class="item-title">{{ p.title }}</div>
@@ -465,6 +472,7 @@ const statsBar = computed(() => {
 }
 .badge-custom   { background: #e0f2fe; color: #0369a1; }
 .badge-modified { background: #fef9c3; color: #92400e; }
+.badge-group    { background: #f3e8ff; color: #7c3aed; }
 
 /* 正文 */
 .item-body {

@@ -26,6 +26,8 @@ function goHome() {
         <span class="brand-text">Hot 100</span>
       </div>
 
+      <button class="groups-nav-btn" @click="router.push('/groups')">组合</button>
+
       <div class="header-progress">
         <div class="progress-meta">
           <span class="progress-nums">{{ progress.stats.mastered }}<em>/{{ total }}</em></span>
@@ -95,6 +97,23 @@ function goHome() {
   font-size: 16px;
   font-weight: 700;
   color: #111827;
+}
+
+/* ── 组合导航按钮 ── */
+.groups-nav-btn {
+  padding: 5px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  margin-left: auto;
+  margin-right: 12px;
+}
+.groups-nav-btn:active {
+  background: #f3f4f6;
 }
 
 /* ── 进度区（右侧） ── */

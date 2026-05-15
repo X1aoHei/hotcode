@@ -13,6 +13,12 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/ProblemDetail.vue'),
     props: true,
     meta: { title: '题目详情' }
+  },
+  {
+    path: '/groups',
+    name: 'groups',
+    component: () => import('@/views/GroupsList.vue'),
+    meta: { title: '题目组合' }
   }
 ]
 

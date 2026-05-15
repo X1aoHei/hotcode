@@ -4,9 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useProblemsStore } from '@/stores/problems'
 import { useProgressStore } from '@/stores/progress'
+import { useGroupsStore } from '@/stores/groups'
 import { problems as staticProblems } from '@/data/problems'
 import { extractMethodSignatures } from '@/utils/code'
 import ProblemFormModal from '@/components/ProblemFormModal.vue'
+import GroupFormModal from '@/components/GroupFormModal.vue'
 import { Codemirror } from 'vue-codemirror'
 import { java } from '@codemirror/lang-java'
 import { indentUnit } from '@codemirror/language'
@@ -19,6 +21,7 @@ const route = useRoute()
 const router = useRouter()
 const problemsStore = useProblemsStore()
 const progress = useProgressStore()
+const groupsStore = useGroupsStore()
 
 const cmExtensions = [java(), oneDark, EditorState.tabSize.of(4), indentUnit.of('    ')]
 const readOnlyExtensions = [...cmExtensions, EditorView.editable.of(false)]
@@ -47,6 +50,19 @@ watch(() => problemsStore.allProblems, () => {
 
 // ── 编辑弹窗 ──
 const showEditModal = ref(false)
+
+// ── 组合管理弹窗 ──
+const showGroupModal = ref(false)
+
+// ── 当前题目所属的组合 ──
+const relatedGroups = computed(() => {
+  if (!problem.value) return []
+  return groupsStore.getGroupsByProblemId(problem.value.id)
+})
+
+function getProblemTitle(id: number): string {
+  return problemsStore.getById(id)?.title ?? `#${id}`
+}
 
 async function handleDelete() {
   if (!problem.value) return
@@ -334,6 +350,35 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
       </button>
     </div>
 
+    <!-- 关联题目 -->
+    <section class="section-card">
+      <div class="section-header">
+        <span>🔗 关联题目</span>
+        <button class="small-btn" @click="showGroupModal = true">管理组合</button>
+      </div>
+      <div class="section-body">
+        <div v-if="relatedGroups.length > 0" class="related-groups">
+          <div v-for="group in relatedGroups" :key="group.id" class="related-group">
+            <div class="group-name">{{ group.name }}</div>
+            <div v-if="group.note" class="group-note">{{ group.note }}</div>
+            <div class="group-problems">
+              <span
+                v-for="id in group.problemIds.filter(pid => pid !== problem?.id)"
+                :key="id"
+                class="problem-chip"
+                @click="router.push({ name: 'detail', params: { id: String(id) } })"
+              >
+                {{ id }}. {{ getProblemTitle(id) }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="related-empty">
+          暂无关联，点击「管理组合」添加
+        </div>
+      </div>
+    </section>
+
     <!-- 题目描述 -->
     <section class="section-card">
       <div class="section-header">
@@ -510,6 +555,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
       :problem="problem"
       @close="showEditModal = false"
       @saved="showEditModal = false"
+    />
+
+    <!-- 组合管理弹窗 -->
+    <GroupFormModal
+      :visible="showGroupModal"
+      @close="showGroupModal = false"
     />
 
     <!-- 移动端悬浮按钮：直接弹出全屏代码 -->
@@ -772,6 +823,59 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 }
 .wrong-set-btn--active:active {
   background: #fecaca;
+}
+
+/* ── 关联题目 ── */
+.related-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.related-group {
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #f3f4f6;
+}
+.related-group .group-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+.related-group .group-note {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+.group-problems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.problem-chip {
+  font-size: 12px;
+  padding: 5px 10px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #374151;
+  cursor: pointer;
+  max-width: 220px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.problem-chip:active {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+.related-empty {
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+  padding: 20px 0;
 }
 
 /* ── 内容 section ── */
