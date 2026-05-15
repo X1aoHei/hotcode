@@ -8,6 +8,7 @@ export type MasteryStatus = 'unseen' | 'learning' | 'mastered'
 export const useProgressStore = defineStore('progress', () => {
   const status = ref<Record<number, MasteryStatus>>({})
   const lastViewed = ref<Record<number, number>>({})
+  const wrongSet = ref<number[]>(initial.wrongSet ?? [])
 
   async function init() {
     try {
@@ -26,6 +27,16 @@ export const useProgressStore = defineStore('progress', () => {
       ElMessage.error('加载进度数据失败，请刷新重试')
     }
   }
+  watch(
+    [status, lastViewed, wrongSet],
+    () => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ status: status.value, lastViewed: lastViewed.value, wrongSet: wrongSet.value })
+      )
+    },
+    { deep: true }
+  )
 
   function setStatus(id: number, s: MasteryStatus) {
     const prev = status.value[id]
@@ -58,10 +69,27 @@ export const useProgressStore = defineStore('progress', () => {
   function reset() {
     status.value = {}
     lastViewed.value = {}
+  wrongSet.value = []
     api.resetProgress().catch((e) => {
       ElMessage.error('重置进度失败')
       console.error(e)
     })
+
+  }
+
+  /** 切换错题标记 */
+  function toggleWrong(id: number) {
+    const idx = wrongSet.value.indexOf(id)
+    if (idx >= 0) {
+      wrongSet.value.splice(idx, 1)
+    } else {
+      wrongSet.value.push(id)
+    }
+  }
+
+  /** 是否已标记为错题 */
+  function isWrong(id: number): boolean {
+    return wrongSet.value.includes(id)
   }
 
   const stats = computed(() => {
@@ -72,5 +100,5 @@ export const useProgressStore = defineStore('progress', () => {
     }
   })
 
-  return { status, lastViewed, init, setStatus, getStatus, markViewed, reset, stats }
+  return { status, lastViewed, init, setStatus, getStatus, markViewed, reset,toggleWrong, isWrong, stats }
 })

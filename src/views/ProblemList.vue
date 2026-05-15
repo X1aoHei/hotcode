@@ -27,6 +27,7 @@ const keyword = ref('')
 const selectedDifficulty = ref<Difficulty | ''>('')
 const selectedTags = ref<string[]>([])
 const selectedStatus = ref<MasteryStatus | ''>('')
+const showWrongSetOnly = ref(false)
 const sortOrder = ref<'default' | 'asc' | 'desc'>('default')
 
 function toggleSort() {
@@ -52,6 +53,7 @@ const filtered = computed(() => {
     if (selectedTags.value.length > 0 && !selectedTags.value.every((t) => p.tags.includes(t)))
       return false
     if (selectedStatus.value && progress.getStatus(p.id) !== selectedStatus.value) return false
+    if (showWrongSetOnly.value && !progress.isWrong(p.id)) return false
     return true
   })
   if (sortOrder.value === 'asc') return [...list].sort((a, b) => a.id - b.id)
@@ -102,6 +104,7 @@ function clearFilters() {
   selectedDifficulty.value = ''
   selectedTags.value = []
   selectedStatus.value = ''
+  showWrongSetOnly.value = false
   sortOrder.value = 'default'
 }
 
@@ -154,7 +157,8 @@ const statsBar = computed(() => {
   const m = progress.stats.mastered
   const l = progress.stats.learning
   const u = problems.value.length - m - l
-  return { m, l, u }
+  const w = progress.wrongSet.length
+  return { m, l, u, w }
 })
 </script>
 
@@ -165,6 +169,7 @@ const statsBar = computed(() => {
       <span class="stat-item stat-mastered">✅ 已掌握 {{ statsBar.m }}</span>
       <span class="stat-item stat-learning">🔥 学习中 {{ statsBar.l }}</span>
       <span class="stat-item stat-unseen">📋 未学习 {{ statsBar.u }}</span>
+      <span class="stat-item stat-wrong">❌ 错题集 {{ statsBar.w }}</span>
     </div>
 
     <!-- 筛选区 -->
@@ -208,6 +213,11 @@ const statsBar = computed(() => {
       <div class="action-row">
         <el-button type="primary" class="action-btn" @click="randomPick">🎲 随机抽题</el-button>
         <el-button type="warning" class="action-btn" @click="randomFromUnmastered">🔁 待复习</el-button>
+        <el-button
+          :type="showWrongSetOnly ? 'danger' : 'default'"
+          class="action-btn"
+          @click="showWrongSetOnly = !showWrongSetOnly"
+        >❌ 错题集</el-button>
         <el-button
           class="action-btn-sort"
           :class="{ 'sort-active': sortOrder !== 'default' }"
@@ -301,6 +311,7 @@ const statsBar = computed(() => {
 .stat-mastered { background: #dcfce7; color: #15803d; }
 .stat-learning { background: #fef9c3; color: #b45309; }
 .stat-unseen   { background: #f1f5f9; color: #475569; }
+.stat-wrong    { background: #fee2e2; color: #dc2626; }
 
 /* ── 筛选卡片 ── */
 .filter-card {
