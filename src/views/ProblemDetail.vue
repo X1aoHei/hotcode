@@ -560,6 +560,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     <!-- 组合管理弹窗 -->
     <GroupFormModal
       :visible="showGroupModal"
+      :default-problem-id="problem?.id"
       @close="showGroupModal = false"
     />
 

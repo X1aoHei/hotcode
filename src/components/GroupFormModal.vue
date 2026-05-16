@@ -9,6 +9,8 @@ const props = defineProps<{
   visible: boolean
   /** 传入则为编辑模式 */
   group?: ProblemGroup | null
+  /** 新建模式下默认选中的题目 ID */
+  defaultProblemId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -45,7 +47,8 @@ watch(
     } else {
       name.value = ''
       note.value = ''
-      selectedProblemIds.value = []
+      // 如果传入了默认题目 ID，自动选中
+      selectedProblemIds.value = props.defaultProblemId ? [props.defaultProblemId] : []
     }
   }
 )
@@ -105,8 +108,6 @@ function handleSave() {
                   placeholder="搜索并选择题目"
                   style="width: 100%"
                   popper-class="form-modal-popper"
-                  collapse-tags
-                  collapse-tags-tooltip
                 >
                   <el-option
                     v-for="opt in problemOptions"
