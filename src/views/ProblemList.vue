@@ -180,15 +180,34 @@ const statsBar = computed(() => {
 
     <!-- 筛选区 -->
     <div class="filter-card">
-      <!-- 搜索框独占一行 -->
-      <el-input
-        v-model="keyword"
-        placeholder="搜索题号 / 标题"
-        clearable
-        class="search-input"
-      />
+      <!-- 搜索框 -->
+      <div class="search-wrapper">
+        <span class="search-icon">🔍</span>
+        <el-input
+          v-model="keyword"
+          placeholder="搜索题号 / 标题 / 标签"
+          clearable
+          class="search-input"
+        />
+      </div>
 
-      <!-- 筛选行：两两一排 -->
+      <!-- 分类筛选 -->
+      <div class="category-section">
+        <span class="category-label">分类筛选</span>
+        <el-select
+          v-model="selectedTags"
+          placeholder="选择标签（可多选）"
+          multiple
+          collapse-tags
+          collapse-tags-tooltip
+          clearable
+          class="category-select"
+        >
+          <el-option v-for="t in allTags" :key="t" :label="t" :value="t" />
+        </el-select>
+      </div>
+
+      <!-- 筛选行：难度 & 状态 -->
       <div class="filter-row">
         <el-select v-model="selectedDifficulty" placeholder="难度" clearable class="filter-select">
           <el-option label="Easy" value="Easy" />
@@ -202,18 +221,6 @@ const statsBar = computed(() => {
           <el-option label="已掌握" value="mastered" />
         </el-select>
       </div>
-
-      <el-select
-        v-model="selectedTags"
-        placeholder="标签筛选（可多选）"
-        multiple
-        collapse-tags
-        collapse-tags-tooltip
-        clearable
-        class="tag-select"
-      >
-        <el-option v-for="t in allTags" :key="t" :label="t" :value="t" />
-      </el-select>
 
       <!-- 操作行 -->
       <div class="action-row">
@@ -340,18 +347,50 @@ const statsBar = computed(() => {
   gap: 10px;
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
+
+/* 搜索框 */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.search-icon {
+  position: absolute;
+  left: 10px;
+  z-index: 1;
+  font-size: 14px;
+}
 .search-input {
   width: 100%;
 }
+.search-input :deep(.el-input__inner) {
+  padding-left: 32px;
+}
+
+/* 分类筛选 */
+.category-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.category-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  padding-left: 2px;
+}
+.category-select {
+  width: 100%;
+}
+
+/* 筛选行 */
 .filter-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 .filter-select {
-  width: 100%;
-}
-.tag-select {
   width: 100%;
 }
 .action-row {

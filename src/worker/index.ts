@@ -137,10 +137,11 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
       const { content } = await request.json() as { content: string }
       await db.prepare('INSERT OR REPLACE INTO notes (problem_id, content, updated_at) VALUES (?, ?, ?)')
         .bind(problemId, content, Date.now())
+        .run()
       return Response.json({ ok: true })
     }
     if (method === 'DELETE') {
-      await db.prepare('DELETE FROM notes WHERE problem_id = ?').bind(problemId)
+      await db.prepare('DELETE FROM notes WHERE problem_id = ?').bind(problemId).run()
       return Response.json({ ok: true })
     }
   }
