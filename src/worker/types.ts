@@ -1,4 +1,4 @@
-interface D1PreparedStatement {
+export interface D1PreparedStatement {
   bind(...params: unknown[]): D1PreparedStatement
   first<T = unknown>(colName?: string): Promise<T | null>
   all<T = unknown>(): Promise<{ results: T[] }>

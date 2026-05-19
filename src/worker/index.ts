@@ -1,4 +1,4 @@
-import type { Env } from './types'
+import type { Env, D1PreparedStatement } from './types'
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -198,18 +198,11 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
     const body = await request.json() as any
     const now = Date.now()
 
-    const stmts = [
-      db.prepare('DELETE FROM user_problems'),
-      db.prepare('DELETE FROM modified_problems'),
-      db.prepare('DELETE FROM deleted_problems'),
-      db.prepare('DELETE FROM progress'),
-      db.prepare('DELETE FROM groups'),
-      db.prepare('DELETE FROM notes'),
-      db.prepare('DELETE FROM drafts'),
-    ]
-
     // 判断格式：新格式有 data.userProblems，旧格式有 data['hot100-user-problems-v1']
     const isLegacy = body.data && !body.data.userProblems
+
+    // 按表分组构建 INSERT 语句，每张表的 DELETE + INSERT 放在同一个 batch 中执行
+    const tableBatches: D1PreparedStatement[][] = []
 
     if (isLegacy) {
       // ── 旧格式（localStorage key-value）──
@@ -219,9 +212,14 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
       const problemsData = data['hot100-user-problems-v1']
       if (problemsData) {
         const parsed = typeof problemsData === 'string' ? JSON.parse(problemsData) : problemsData
+        const problemStmts: D1PreparedStatement[] = [
+          db.prepare('DELETE FROM user_problems'),
+          db.prepare('DELETE FROM modified_problems'),
+          db.prepare('DELETE FROM deleted_problems'),
+        ]
         if (parsed.added) {
           for (const p of parsed.added) {
-            stmts.push(
+            problemStmts.push(
               db.prepare('INSERT INTO user_problems (id, data, created_at, updated_at) VALUES (?, ?, ?, ?)')
                 .bind(p.id, JSON.stringify(p), now, now)
             )
@@ -229,7 +227,7 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
         }
         if (parsed.modified) {
           for (const [id, p] of Object.entries(parsed.modified)) {
-            stmts.push(
+            problemStmts.push(
               db.prepare('INSERT INTO modified_problems (problem_id, data, updated_at) VALUES (?, ?, ?)')
                 .bind(Number(id), JSON.stringify(p), now)
             )
@@ -237,18 +235,20 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
         }
         if (parsed.deleted) {
           for (const id of parsed.deleted) {
-            stmts.push(
+            problemStmts.push(
               db.prepare('INSERT INTO deleted_problems (problem_id, deleted_at) VALUES (?, ?)')
                 .bind(id, now)
             )
           }
         }
+        tableBatches.push(problemStmts)
       }
 
       // 进度
       const progressData = data['hot100-progress-v1']
       if (progressData) {
         const parsed = typeof progressData === 'string' ? JSON.parse(progressData) : progressData
+        const progressStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM progress')]
         const wrongSetSet = new Set(parsed.wrongSet ?? [])
         const allIds = new Set([
           ...Object.keys(parsed.status ?? {}).map(Number),
@@ -256,104 +256,126 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
           ...(parsed.wrongSet ?? []),
         ])
         for (const id of allIds) {
-          stmts.push(
+          progressStmts.push(
             db.prepare('INSERT INTO progress (problem_id, status, last_viewed, is_wrong) VALUES (?, ?, ?, ?)')
               .bind(id, parsed.status?.[id] ?? 'unseen', parsed.lastViewed?.[id] ?? null, wrongSetSet.has(id) ? 1 : 0)
           )
         }
+        tableBatches.push(progressStmts)
       }
 
       // 组合
       const groupsData = data['hot100-groups-v1']
       if (groupsData) {
         const parsed = typeof groupsData === 'string' ? JSON.parse(groupsData) : groupsData
+        const groupStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM groups')]
         for (const g of parsed) {
-          stmts.push(
+          groupStmts.push(
             db.prepare('INSERT INTO groups (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
               .bind(g.id, g.name, g.note ?? '', JSON.stringify(g.problemIds), g.createdAt, g.updatedAt)
           )
         }
+        tableBatches.push(groupStmts)
       }
 
-      // 笔记和草稿
+      // 笔记
+      const noteStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM notes')]
+      // 草稿
+      const draftStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM drafts')]
+
       for (const [key, value] of Object.entries(data)) {
         if (key.startsWith('hot100-note-')) {
           const problemId = Number(key.replace('hot100-note-', ''))
           const content = typeof value === 'string' ? value : JSON.stringify(value)
-          stmts.push(
+          noteStmts.push(
             db.prepare('INSERT OR REPLACE INTO notes (problem_id, content, updated_at) VALUES (?, ?, ?)')
               .bind(problemId, content, now)
           )
         } else if (key.startsWith('hot100-draft-')) {
           const problemId = Number(key.replace('hot100-draft-', ''))
           const content = typeof value === 'string' ? value : JSON.stringify(value)
-          stmts.push(
+          draftStmts.push(
             db.prepare('INSERT OR REPLACE INTO drafts (problem_id, content, updated_at) VALUES (?, ?, ?)')
               .bind(problemId, content, now)
           )
         }
       }
+      if (noteStmts.length > 1) tableBatches.push(noteStmts)
+      if (draftStmts.length > 1) tableBatches.push(draftStmts)
     } else {
       // ── 新格式（D1 表行）──
-      if (body.data?.userProblems) {
-        for (const r of body.data.userProblems) {
-          stmts.push(
+      if (body.data?.userProblems || body.data?.modifiedProblems || body.data?.deletedProblems) {
+        const problemStmts: D1PreparedStatement[] = [
+          db.prepare('DELETE FROM user_problems'),
+          db.prepare('DELETE FROM modified_problems'),
+          db.prepare('DELETE FROM deleted_problems'),
+        ]
+        for (const r of (body.data.userProblems ?? [])) {
+          problemStmts.push(
             db.prepare('INSERT INTO user_problems (id, data, created_at, updated_at) VALUES (?, ?, ?, ?)')
               .bind(r.id, r.data, r.created_at ?? now, r.updated_at ?? now)
           )
         }
-      }
-      if (body.data?.modifiedProblems) {
-        for (const r of body.data.modifiedProblems) {
-          stmts.push(
+        for (const r of (body.data.modifiedProblems ?? [])) {
+          problemStmts.push(
             db.prepare('INSERT INTO modified_problems (problem_id, data, updated_at) VALUES (?, ?, ?)')
               .bind(r.problem_id, r.data, r.updated_at ?? now)
           )
         }
-      }
-      if (body.data?.deletedProblems) {
-        for (const r of body.data.deletedProblems) {
-          stmts.push(
+        for (const r of (body.data.deletedProblems ?? [])) {
+          problemStmts.push(
             db.prepare('INSERT INTO deleted_problems (problem_id, deleted_at) VALUES (?, ?)')
               .bind(r.problem_id, r.deleted_at ?? now)
           )
         }
+        tableBatches.push(problemStmts)
       }
       if (body.data?.progress) {
+        const progressStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM progress')]
         for (const r of body.data.progress) {
-          stmts.push(
+          progressStmts.push(
             db.prepare('INSERT INTO progress (problem_id, status, last_viewed, is_wrong) VALUES (?, ?, ?, ?)')
               .bind(r.problem_id, r.status, r.last_viewed, r.is_wrong)
           )
         }
+        tableBatches.push(progressStmts)
       }
       if (body.data?.groups) {
+        const groupStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM groups')]
         for (const r of body.data.groups) {
-          stmts.push(
+          groupStmts.push(
             db.prepare('INSERT INTO groups (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
               .bind(r.id, r.name, r.note, r.problem_ids, r.created_at, r.updated_at)
           )
         }
+        tableBatches.push(groupStmts)
       }
       if (body.data?.notes) {
+        const noteStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM notes')]
         for (const r of body.data.notes) {
-          stmts.push(
+          noteStmts.push(
             db.prepare('INSERT INTO notes (problem_id, content, updated_at) VALUES (?, ?, ?)')
               .bind(r.problem_id, r.content, r.updated_at ?? now)
           )
         }
+        tableBatches.push(noteStmts)
       }
       if (body.data?.drafts) {
+        const draftStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM drafts')]
         for (const r of body.data.drafts) {
-          stmts.push(
+          draftStmts.push(
             db.prepare('INSERT INTO drafts (problem_id, content, updated_at) VALUES (?, ?, ?)')
               .bind(r.problem_id, r.content, r.updated_at ?? now)
           )
         }
+        tableBatches.push(draftStmts)
       }
     }
 
-    await db.batch(stmts)
+    // 按表依次执行 batch，每张表的 DELETE + INSERT 是原子操作
+    for (const batch of tableBatches) {
+      await db.batch(batch)
+    }
     return Response.json({ ok: true })
   }
 
@@ -362,23 +384,21 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
     const body = await request.json() as Record<string, any>
     const now = Date.now()
 
-    const stmts = [
-      db.prepare('DELETE FROM user_problems'),
-      db.prepare('DELETE FROM modified_problems'),
-      db.prepare('DELETE FROM deleted_problems'),
-      db.prepare('DELETE FROM progress'),
-      db.prepare('DELETE FROM groups'),
-      db.prepare('DELETE FROM notes'),
-      db.prepare('DELETE FROM drafts'),
-    ]
+    // 按表分组构建 INSERT 语句，每张表的 DELETE + INSERT 放在同一个 batch 中执行
+    const tableBatches: D1PreparedStatement[][] = []
 
     // Migrate problems store data
     const problemsData = body['hot100-user-problems-v1']
     if (problemsData) {
       const parsed = typeof problemsData === 'string' ? JSON.parse(problemsData) : problemsData
+      const problemStmts: D1PreparedStatement[] = [
+        db.prepare('DELETE FROM user_problems'),
+        db.prepare('DELETE FROM modified_problems'),
+        db.prepare('DELETE FROM deleted_problems'),
+      ]
       if (parsed.added) {
         for (const p of parsed.added) {
-          stmts.push(
+          problemStmts.push(
             db.prepare('INSERT INTO user_problems (id, data, created_at, updated_at) VALUES (?, ?, ?, ?)')
               .bind(p.id, JSON.stringify(p), now, now)
           )
@@ -386,7 +406,7 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
       }
       if (parsed.modified) {
         for (const [id, p] of Object.entries(parsed.modified)) {
-          stmts.push(
+          problemStmts.push(
             db.prepare('INSERT INTO modified_problems (problem_id, data, updated_at) VALUES (?, ?, ?)')
               .bind(Number(id), JSON.stringify(p), now)
           )
@@ -394,18 +414,20 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
       }
       if (parsed.deleted) {
         for (const id of parsed.deleted) {
-          stmts.push(
+          problemStmts.push(
             db.prepare('INSERT INTO deleted_problems (problem_id, deleted_at) VALUES (?, ?)')
               .bind(id, now)
           )
         }
       }
+      tableBatches.push(problemStmts)
     }
 
     // Migrate progress store data
     const progressData = body['hot100-progress-v1']
     if (progressData) {
       const parsed = typeof progressData === 'string' ? JSON.parse(progressData) : progressData
+      const progressStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM progress')]
       const wrongSetSet = new Set(parsed.wrongSet ?? [])
       const allIds = new Set([
         ...Object.keys(parsed.status ?? {}).map(Number),
@@ -413,46 +435,59 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
         ...(parsed.wrongSet ?? []),
       ])
       for (const id of allIds) {
-        stmts.push(
+        progressStmts.push(
           db.prepare('INSERT INTO progress (problem_id, status, last_viewed, is_wrong) VALUES (?, ?, ?, ?)')
             .bind(id, parsed.status?.[id] ?? 'unseen', parsed.lastViewed?.[id] ?? null, wrongSetSet.has(id) ? 1 : 0)
         )
       }
+      tableBatches.push(progressStmts)
     }
 
     // Migrate groups store data
     const groupsData = body['hot100-groups-v1']
     if (groupsData) {
       const parsed = typeof groupsData === 'string' ? JSON.parse(groupsData) : groupsData
+      const groupStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM groups')]
       for (const g of parsed) {
-        stmts.push(
+        groupStmts.push(
           db.prepare('INSERT INTO groups (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
             .bind(g.id, g.name, g.note ?? '', JSON.stringify(g.problemIds), g.createdAt, g.updatedAt)
         )
       }
+      tableBatches.push(groupStmts)
     }
 
     // Migrate per-problem notes and drafts
+    const noteStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM notes')]
+    const draftStmts: D1PreparedStatement[] = [db.prepare('DELETE FROM drafts')]
+
     for (const [key, value] of Object.entries(body)) {
       if (key.startsWith('hot100-note-')) {
         const problemId = Number(key.replace('hot100-note-', ''))
         const content = typeof value === 'string' ? value : JSON.stringify(value)
-        stmts.push(
+        noteStmts.push(
           db.prepare('INSERT OR REPLACE INTO notes (problem_id, content, updated_at) VALUES (?, ?, ?)')
             .bind(problemId, content, now)
         )
       } else if (key.startsWith('hot100-draft-')) {
         const problemId = Number(key.replace('hot100-draft-', ''))
         const content = typeof value === 'string' ? value : JSON.stringify(value)
-        stmts.push(
+        draftStmts.push(
           db.prepare('INSERT OR REPLACE INTO drafts (problem_id, content, updated_at) VALUES (?, ?, ?)')
             .bind(problemId, content, now)
         )
       }
     }
+    if (noteStmts.length > 1) tableBatches.push(noteStmts)
+    if (draftStmts.length > 1) tableBatches.push(draftStmts)
 
-    await db.batch(stmts)
-    return Response.json({ ok: true, migrated: stmts.length })
+    // 按表依次执行 batch，每张表的 DELETE + INSERT 是原子操作
+    let migrated = 0
+    for (const batch of tableBatches) {
+      await db.batch(batch)
+      migrated += batch.length
+    }
+    return Response.json({ ok: true, migrated })
   }
 
   return Response.json({ error: 'Not Found' }, { status: 404 })
