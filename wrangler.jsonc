@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "hotcode",
+  "main": "src/worker/index.ts",
   "compatibility_date": "2026-05-06",
   "observability": {
     "enabled": true
@@ -10,5 +11,12 @@
   },
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hotcode-db",
+      "database_id": "d2a87242-0eb6-4ebb-8691-739daa937158"
+    }
   ]
 }

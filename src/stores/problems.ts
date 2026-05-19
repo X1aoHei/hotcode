@@ -2,19 +2,17 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { problems as staticProblems } from '@/data/problems'
 import type { Problem } from '@/types/problem'
+import { api } from '@/utils/api'
 
 const STORAGE_KEY = 'hot100-user-problems-v1'
 
 interface UserData {
-  /** 用户新增的自定义题目 */
   added: Problem[]
-  /** 用户修改过的内置题目（完整副本，覆盖静态数据） */
   modified: Record<number, Problem>
-  /** 用户删除的内置题目 ID */
   deleted: number[]
 }
 
-function loadUserData(): UserData {
+function loadLocal(): UserData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { added: [], modified: {}, deleted: [] }
@@ -25,53 +23,68 @@ function loadUserData(): UserData {
 }
 
 export const useProblemsStore = defineStore('problems', () => {
-  const userData = ref<UserData>(loadUserData())
+  const userData = ref<UserData>(loadLocal())
+  let synced = false
 
-  function persist() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData.value))
+  /** 从 D1 加载数据 */
+  async function sync() {
+    try {
+      const data = await api.get<UserData>('/user-problems')
+      userData.value = {
+        added: data.added ?? [],
+        modified: data.modified ?? {},
+        deleted: data.deleted ?? [],
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(userData.value))
+      synced = true
+    } catch {
+      // API 不可用时使用 localStorage
+    }
   }
 
-  /** 合并后的完整题目列表（静态 + 用户改动） */
+  /** 保存到 D1 + localStorage */
+  function persist() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData.value))
+    if (synced) {
+      api.post('/user-problems', userData.value).catch(() => {})
+    }
+  }
+
+  // 启动时从 D1 同步
+  sync()
+
   const allProblems = computed<Problem[]>(() => {
     const deletedSet = new Set(userData.value.deleted)
     const list: Problem[] = []
-
     for (const p of staticProblems) {
       if (deletedSet.has(p.id)) continue
       list.push(userData.value.modified[p.id] ?? p)
     }
-
     list.push(...userData.value.added)
     return list
   })
 
-  /** 所有标签（去重排序） */
   const allTags = computed<string[]>(() =>
     Array.from(new Set(allProblems.value.flatMap((p) => p.tags))).sort()
   )
 
-  /** 按 ID 查找题目 */
   function getById(id: number): Problem | undefined {
     return allProblems.value.find((p) => p.id === id)
   }
 
-  /** 是否为用户自定义题目 */
   function isCustom(id: number) {
     return userData.value.added.some((p) => p.id === id)
   }
 
-  /** 是否为修改过的内置题目 */
   function isModified(id: number) {
     return id in userData.value.modified
   }
 
-  /** 新增自定义题目 */
   function addProblem(p: Problem) {
     userData.value.added.push(p)
     persist()
   }
 
-  /** 更新题目（内置 → 存 modified；自定义 → 直接替换） */
   function updateProblem(p: Problem) {
     const isStatic = staticProblems.some((sp) => sp.id === p.id)
     if (isStatic) {
@@ -83,7 +96,6 @@ export const useProblemsStore = defineStore('problems', () => {
     persist()
   }
 
-  /** 删除题目（内置 → 加入 deleted；自定义 → 直接移除） */
   function deleteProblem(id: number) {
     const isStatic = staticProblems.some((sp) => sp.id === id)
     if (isStatic) {
@@ -98,7 +110,6 @@ export const useProblemsStore = defineStore('problems', () => {
     persist()
   }
 
-  /** 还原内置题目至原始状态 */
   function resetProblem(id: number) {
     const { [id]: _, ...rest } = userData.value.modified
     userData.value.modified = rest
@@ -106,13 +117,11 @@ export const useProblemsStore = defineStore('problems', () => {
     persist()
   }
 
-  /** 生成下一个自定义题目 ID（从 10001 开始） */
   function nextCustomId(): number {
     const ids = userData.value.added.map((p) => p.id)
     return ids.length ? Math.max(...ids) + 1 : 10001
   }
 
-  /** ID 是否已存在 */
   function idExists(id: number) {
     return allProblems.value.some((p) => p.id === id)
   }
@@ -129,5 +138,6 @@ export const useProblemsStore = defineStore('problems', () => {
     resetProblem,
     nextCustomId,
     idExists,
+    sync,
   }
 })

@@ -1,41 +1,23 @@
 /**
- * 导入 / 导出本地配置
+ * 导入 / 导出
  *
- * 收集 localStorage 中所有 hot100 相关 key，打包为 JSON 文件供下载；
- * 也可从 JSON 文件恢复，写回 localStorage 后刷新页面生效。
+ * 通过 D1 API 导出全部数据为 JSON 文件下载；
+ * 也可从 JSON 文件恢复，通过 API 写入 D1。
  */
 
+import { api } from './api'
+
+const PREFIX = 'hot100-'
+
 export interface ExportPayload {
-  version: 1
+  version: number
   exportedAt: string
   data: Record<string, unknown>
 }
 
-const PREFIX = 'hot100-'
-
-/** 收集 localStorage 中所有 hot100-* 的 key-value */
-function collectData(): Record<string, unknown> {
-  const data: Record<string, unknown> = {}
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key && key.startsWith(PREFIX)) {
-      try {
-        data[key] = JSON.parse(localStorage.getItem(key)!)
-      } catch {
-        data[key] = localStorage.getItem(key)
-      }
-    }
-  }
-  return data
-}
-
-/** 导出：生成 JSON 文件并下载 */
-export function exportData(): void {
-  const payload: ExportPayload = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    data: collectData(),
-  }
+/** 导出：调用 API 获取全部数据并下载 */
+export async function exportData(): Promise<void> {
+  const payload = await api.get<ExportPayload>('/export')
 
   const blob = new Blob([JSON.stringify(payload, null, 2)], {
     type: 'application/json',
@@ -52,40 +34,23 @@ export function exportData(): void {
   URL.revokeObjectURL(url)
 }
 
-/** 导入：从 JSON 文件读取并写入 localStorage，然后刷新页面 */
+/** 导入：读取 JSON 文件并通过 API 写入 D1 */
 export function importData(file: File): Promise<{ count: number }> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
 
     reader.onerror = () => reject(new Error('文件读取失败'))
 
-    reader.onload = () => {
+    reader.onload = async () => {
       try {
-        const payload = JSON.parse(reader.result as string) as ExportPayload
+        const payload = JSON.parse(reader.result as string)
 
-        if (payload.version !== 1 || !payload.data) {
+        if (!payload.data) {
           return reject(new Error('文件格式不正确，请确认是本工具导出的备份文件'))
         }
 
-        // 先清除旧数据
-        const keysToRemove: string[] = []
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i)
-          if (key && key.startsWith(PREFIX)) keysToRemove.push(key)
-        }
-        keysToRemove.forEach((k) => localStorage.removeItem(k))
-
-        // 写入新数据
-        let count = 0
-        for (const [key, value] of Object.entries(payload.data)) {
-          localStorage.setItem(
-            key,
-            typeof value === 'string' ? value : JSON.stringify(value)
-          )
-          count++
-        }
-
-        resolve({ count })
+        await api.post('/import', payload)
+        resolve({ count: Object.keys(payload.data).length })
       } catch (e) {
         reject(new Error('文件解析失败：' + (e as Error).message))
       }
@@ -93,4 +58,38 @@ export function importData(file: File): Promise<{ count: number }> {
 
     reader.readAsText(file)
   })
+}
+
+/** 迁移 localStorage 旧数据到 D1 */
+export async function migrateLocalToD1(): Promise<boolean> {
+  const data: Record<string, unknown> = {}
+  let hasData = false
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith(PREFIX)) {
+      try {
+        data[key] = JSON.parse(localStorage.getItem(key)!)
+      } catch {
+        data[key] = localStorage.getItem(key)
+      }
+      hasData = true
+    }
+  }
+
+  if (!hasData) return false
+
+  try {
+    await api.post('/migrate', data)
+    // 迁移成功后清除 localStorage 旧数据
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith(PREFIX)) keysToRemove.push(key)
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k))
+    return true
+  } catch {
+    return false
+  }
 }

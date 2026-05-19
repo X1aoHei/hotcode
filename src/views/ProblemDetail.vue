@@ -7,6 +7,7 @@ import { useProgressStore } from '@/stores/progress'
 import { useGroupsStore } from '@/stores/groups'
 import { problems as staticProblems } from '@/data/problems'
 import { extractMethodSignatures } from '@/utils/code'
+import { api } from '@/utils/api'
 import ProblemFormModal from '@/components/ProblemFormModal.vue'
 import GroupFormModal from '@/components/GroupFormModal.vue'
 import { Codemirror } from 'vue-codemirror'
@@ -124,21 +125,25 @@ async function restoreCode() {
 }
 
 // ── 记忆笔记 ──
-const NOTE_PREFIX = 'hot100-note-'
 const noteContent = ref('')     // 当前已保存的笔记
 const noteDraft = ref('')       // 编辑中的草稿
 const editingNote = ref(false)  // 是否处于编辑模式
 const hasNote = computed(() => noteContent.value.trim().length > 0)
 
-function loadNote(id: number) {
-  noteContent.value = localStorage.getItem(NOTE_PREFIX + id) ?? ''
+async function loadNote(id: number) {
+  try {
+    const data = await api.get<{ content: string }>(`/notes/${id}`)
+    noteContent.value = data.content ?? ''
+  } catch {
+    noteContent.value = ''
+  }
   noteDraft.value = noteContent.value
   editingNote.value = false
 }
-function saveNote() {
+async function saveNote() {
   if (!problem.value) return
   noteContent.value = noteDraft.value
-  localStorage.setItem(NOTE_PREFIX + problem.value.id, noteDraft.value)
+  await api.put(`/notes/${problem.value.id}`, { content: noteDraft.value }).catch(() => {})
   editingNote.value = false
   ElMessage.success('笔记已保存')
 }
@@ -150,11 +155,11 @@ function cancelEditNote() {
   noteDraft.value = noteContent.value
   editingNote.value = false
 }
-function deleteNote() {
+async function deleteNote() {
   if (!problem.value) return
   noteContent.value = ''
   noteDraft.value = ''
-  localStorage.removeItem(NOTE_PREFIX + problem.value.id)
+  await api.delete(`/notes/${problem.value.id}`).catch(() => {})
   editingNote.value = false
   ElMessage.success('笔记已删除')
 }
@@ -192,25 +197,27 @@ function onTouchMove(e: TouchEvent) {
 }
 
 // 切题时重置 UI 状态（immediate 确保首次加载也执行）
-watch(() => route.params.id, (rawId) => {
+watch(() => route.params.id, async (rawId) => {
   const id = Number(rawId)
   if (!id) return
   showApproach.value = false
   showCode.value = false
-  userDraft.value = loadDraft(id)
-  loadNote(id)
+  userDraft.value = await loadDraft(id)
+  await loadNote(id)
   progress.markViewed(id)
 }, { immediate: true })
-
-const DRAFT_PREFIX = 'hot100-draft-'
 
 function getDefaultDraft(p: Problem): string {
   return p.draft || extractMethodSignatures(p.code)
 }
 
-function loadDraft(id: number): string {
-  const saved = localStorage.getItem(DRAFT_PREFIX + id)
-  if (saved) return saved
+async function loadDraft(id: number): Promise<string> {
+  try {
+    const data = await api.get<{ content: string }>(`/drafts/${id}`)
+    if (data.content) return data.content
+  } catch {
+    // fall through
+  }
   const p = problemsStore.allProblems.find((p) => p.id === id)
   return p ? getDefaultDraft(p) : ''
 }
@@ -220,20 +227,20 @@ watch(userDraft, () => {
   if (autoSaveTimer) clearTimeout(autoSaveTimer)
   autoSaveTimer = setTimeout(() => {
     if (problem.value) {
-      localStorage.setItem(DRAFT_PREFIX + problem.value.id, userDraft.value)
+      api.put(`/drafts/${problem.value.id}`, { content: userDraft.value }).catch(() => {})
     }
   }, 800)
 })
 
-function saveDraft() {
+async function saveDraft() {
   if (problem.value) {
-    localStorage.setItem(DRAFT_PREFIX + problem.value.id, userDraft.value)
+    await api.put(`/drafts/${problem.value.id}`, { content: userDraft.value }).catch(() => {})
     ElMessage.success('草稿已保存')
   }
 }
-function clearDraft() {
+async function clearDraft() {
   if (problem.value) {
-    localStorage.removeItem(DRAFT_PREFIX + problem.value.id)
+    await api.delete(`/drafts/${problem.value.id}`).catch(() => {})
     userDraft.value = getDefaultDraft(problem.value)
   }
 }

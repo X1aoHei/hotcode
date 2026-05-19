@@ -117,9 +117,13 @@ function clearFilters() {
 // ── 导入 / 导出 ──
 const fileInputRef = ref<HTMLInputElement | null>(null)
 
-function handleExport() {
-  exportData()
-  ElMessage.success('备份文件已下载')
+async function handleExport() {
+  try {
+    await exportData()
+    ElMessage.success('备份文件已下载')
+  } catch (err) {
+    ElMessage.error((err as Error).message)
+  }
 }
 
 function triggerImport() {

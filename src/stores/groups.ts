@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import type { ProblemGroup } from '@/types/group'
+import { api } from '@/utils/api'
 
 const STORAGE_KEY = 'hot100-groups-v1'
 
-function load(): ProblemGroup[] {
+function loadLocal(): ProblemGroup[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
@@ -15,32 +16,48 @@ function load(): ProblemGroup[] {
 }
 
 export const useGroupsStore = defineStore('groups', () => {
-  const groups = ref<ProblemGroup[]>(load())
+  const groups = ref<ProblemGroup[]>(loadLocal())
+  let synced = false
 
+  /** 从 D1 加载数据 */
+  async function sync() {
+    try {
+      const data = await api.get<ProblemGroup[]>('/groups')
+      groups.value = data ?? []
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(groups.value))
+      synced = true
+    } catch {
+      // API 不可用时使用 localStorage
+    }
+  }
+
+  // 保存到 localStorage + D1
   watch(
     groups,
     () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(groups.value))
+      if (synced) {
+        api.post('/groups', groups.value).catch(() => {})
+      }
     },
     { deep: true }
   )
 
-  /** 所有组合（按更新时间倒序） */
+  // 启动时从 D1 同步
+  sync()
+
   const allGroups = computed(() =>
     [...groups.value].sort((a, b) => b.updatedAt - a.updatedAt)
   )
 
-  /** 获取包含指定题目的所有组合 */
   function getGroupsByProblemId(problemId: number): ProblemGroup[] {
     return groups.value.filter((g) => g.problemIds.includes(problemId))
   }
 
-  /** 按 ID 获取组合 */
   function getGroupById(id: string): ProblemGroup | undefined {
     return groups.value.find((g) => g.id === id)
   }
 
-  /** 创建组合 */
   function createGroup(name: string, problemIds: number[], note = ''): string {
     const now = Date.now()
     const id = now.toString(36)
@@ -55,7 +72,6 @@ export const useGroupsStore = defineStore('groups', () => {
     return id
   }
 
-  /** 更新组合 */
   function updateGroup(
     id: string,
     patch: Partial<Pick<ProblemGroup, 'name' | 'note' | 'problemIds'>>
@@ -68,13 +84,11 @@ export const useGroupsStore = defineStore('groups', () => {
     group.updatedAt = Date.now()
   }
 
-  /** 删除组合 */
   function deleteGroup(id: string) {
     const idx = groups.value.findIndex((g) => g.id === id)
     if (idx >= 0) groups.value.splice(idx, 1)
   }
 
-  /** 向组合中添加题目 */
   function addProblemToGroup(groupId: string, problemId: number) {
     const group = groups.value.find((g) => g.id === groupId)
     if (!group || group.problemIds.includes(problemId)) return
@@ -82,7 +96,6 @@ export const useGroupsStore = defineStore('groups', () => {
     group.updatedAt = Date.now()
   }
 
-  /** 从组合中移除题目 */
   function removeProblemFromGroup(groupId: string, problemId: number) {
     const group = groups.value.find((g) => g.id === groupId)
     if (!group) return
@@ -93,7 +106,6 @@ export const useGroupsStore = defineStore('groups', () => {
     }
   }
 
-  /** 清理不存在的题目 ID */
   function cleanupInvalidProblemIds(validIds: Set<number>) {
     for (const group of groups.value) {
       const before = group.problemIds.length
@@ -102,7 +114,6 @@ export const useGroupsStore = defineStore('groups', () => {
         group.updatedAt = Date.now()
       }
     }
-    // 删除空组合
     groups.value = groups.value.filter((g) => g.problemIds.length > 0)
   }
 
@@ -117,5 +128,6 @@ export const useGroupsStore = defineStore('groups', () => {
     addProblemToGroup,
     removeProblemFromGroup,
     cleanupInvalidProblemIds,
+    sync,
   }
 })

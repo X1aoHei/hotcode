@@ -1,21 +1,18 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
+import { api } from '@/utils/api'
 
-/** 每道题的掌握状态 */
 export type MasteryStatus = 'unseen' | 'learning' | 'mastered'
 
 interface ProgressState {
-  /** key = 题号，value = 状态 */
   status: Record<number, MasteryStatus>
-  /** 上次查看时间戳 */
   lastViewed: Record<number, number>
-  /** 错题集题目 ID 列表 */
   wrongSet: number[]
 }
 
 const STORAGE_KEY = 'hot100-progress-v1'
 
-function load(): ProgressState {
+function loadLocal(): ProgressState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return { status: {}, lastViewed: {}, wrongSet: [] }
@@ -27,11 +24,30 @@ function load(): ProgressState {
 }
 
 export const useProgressStore = defineStore('progress', () => {
-  const initial = load()
+  const initial = loadLocal()
   const status = ref<Record<number, MasteryStatus>>(initial.status ?? {})
   const lastViewed = ref<Record<number, number>>(initial.lastViewed ?? {})
   const wrongSet = ref<number[]>(initial.wrongSet ?? [])
+  let synced = false
 
+  /** 从 D1 加载数据 */
+  async function sync() {
+    try {
+      const data = await api.get<ProgressState>('/progress')
+      status.value = data.status ?? {}
+      lastViewed.value = data.lastViewed ?? {}
+      wrongSet.value = data.wrongSet ?? []
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ status: status.value, lastViewed: lastViewed.value, wrongSet: wrongSet.value })
+      )
+      synced = true
+    } catch {
+      // API 不可用时使用 localStorage
+    }
+  }
+
+  // 保存到 localStorage + D1
   watch(
     [status, lastViewed, wrongSet],
     () => {
@@ -39,9 +55,15 @@ export const useProgressStore = defineStore('progress', () => {
         STORAGE_KEY,
         JSON.stringify({ status: status.value, lastViewed: lastViewed.value, wrongSet: wrongSet.value })
       )
+      if (synced) {
+        api.post('/progress', { status: status.value, lastViewed: lastViewed.value, wrongSet: wrongSet.value }).catch(() => {})
+      }
     },
     { deep: true }
   )
+
+  // 启动时从 D1 同步
+  sync()
 
   function setStatus(id: number, s: MasteryStatus) {
     status.value = { ...status.value, [id]: s }
@@ -61,7 +83,6 @@ export const useProgressStore = defineStore('progress', () => {
     wrongSet.value = []
   }
 
-  /** 切换错题标记 */
   function toggleWrong(id: number) {
     const idx = wrongSet.value.indexOf(id)
     if (idx >= 0) {
@@ -71,7 +92,6 @@ export const useProgressStore = defineStore('progress', () => {
     }
   }
 
-  /** 是否已标记为错题 */
   function isWrong(id: number): boolean {
     return wrongSet.value.includes(id)
   }
@@ -84,5 +104,5 @@ export const useProgressStore = defineStore('progress', () => {
     }
   })
 
-  return { status, lastViewed, wrongSet, setStatus, getStatus, markViewed, reset, toggleWrong, isWrong, stats }
+  return { status, lastViewed, wrongSet, setStatus, getStatus, markViewed, reset, toggleWrong, isWrong, stats, sync }
 })
