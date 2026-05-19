@@ -30,7 +30,7 @@ const selectedDifficulty = ref<Difficulty | ''>('')
 const selectedTags = ref<string[]>([])
 const selectedStatus = ref<MasteryStatus | ''>('')
 const showWrongSetOnly = ref(false)
-const sortOrder = ref<'default' | 'asc' | 'desc'>('default')
+const sortOrder = ref<'default' | 'asc' | 'desc'>('asc')
 
 function toggleSort() {
   sortOrder.value =
