@@ -10,24 +10,10 @@ interface ProgressState {
   wrongSet: number[]
 }
 
-const STORAGE_KEY = 'hot100-progress-v1'
-
-function loadLocal(): ProgressState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { status: {}, lastViewed: {}, wrongSet: [] }
-    const data = JSON.parse(raw)
-    return { status: data.status ?? {}, lastViewed: data.lastViewed ?? {}, wrongSet: data.wrongSet ?? [] }
-  } catch {
-    return { status: {}, lastViewed: {}, wrongSet: [] }
-  }
-}
-
 export const useProgressStore = defineStore('progress', () => {
-  const initial = loadLocal()
-  const status = ref<Record<number, MasteryStatus>>(initial.status ?? {})
-  const lastViewed = ref<Record<number, number>>(initial.lastViewed ?? {})
-  const wrongSet = ref<number[]>(initial.wrongSet ?? [])
+  const status = ref<Record<number, MasteryStatus>>({})
+  const lastViewed = ref<Record<number, number>>({})
+  const wrongSet = ref<number[]>([])
   let synced = false
 
   /** 从 D1 加载数据 */
@@ -37,24 +23,16 @@ export const useProgressStore = defineStore('progress', () => {
       status.value = data.status ?? {}
       lastViewed.value = data.lastViewed ?? {}
       wrongSet.value = data.wrongSet ?? []
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ status: status.value, lastViewed: lastViewed.value, wrongSet: wrongSet.value })
-      )
       synced = true
     } catch {
-      // API 不可用时使用 localStorage
+      // API 不可用时使用空数据
     }
   }
 
-  // 保存到 localStorage + D1
+  // 保存到 D1
   watch(
     [status, lastViewed, wrongSet],
     () => {
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ status: status.value, lastViewed: lastViewed.value, wrongSet: wrongSet.value })
-      )
       if (synced) {
         api.post('/progress', { status: status.value, lastViewed: lastViewed.value, wrongSet: wrongSet.value }).catch(() => {})
       }

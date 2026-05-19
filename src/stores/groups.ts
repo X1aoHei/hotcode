@@ -3,20 +3,8 @@ import { ref, computed, watch } from 'vue'
 import type { ProblemGroup } from '@/types/group'
 import { api } from '@/utils/api'
 
-const STORAGE_KEY = 'hot100-groups-v1'
-
-function loadLocal(): ProblemGroup[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    return JSON.parse(raw)
-  } catch {
-    return []
-  }
-}
-
 export const useGroupsStore = defineStore('groups', () => {
-  const groups = ref<ProblemGroup[]>(loadLocal())
+  const groups = ref<ProblemGroup[]>([])
   let synced = false
 
   /** 从 D1 加载数据 */
@@ -24,18 +12,16 @@ export const useGroupsStore = defineStore('groups', () => {
     try {
       const data = await api.get<ProblemGroup[]>('/groups')
       groups.value = data ?? []
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(groups.value))
       synced = true
     } catch {
-      // API 不可用时使用 localStorage
+      // API 不可用时使用空数据
     }
   }
 
-  // 保存到 localStorage + D1
+  // 保存到 D1
   watch(
     groups,
     () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(groups.value))
       if (synced) {
         api.post('/groups', groups.value).catch(() => {})
       }

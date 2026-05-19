@@ -4,26 +4,14 @@ import { problems as staticProblems } from '@/data/problems'
 import type { Problem } from '@/types/problem'
 import { api } from '@/utils/api'
 
-const STORAGE_KEY = 'hot100-user-problems-v1'
-
 interface UserData {
   added: Problem[]
   modified: Record<number, Problem>
   deleted: number[]
 }
 
-function loadLocal(): UserData {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { added: [], modified: {}, deleted: [] }
-    return JSON.parse(raw)
-  } catch {
-    return { added: [], modified: {}, deleted: [] }
-  }
-}
-
 export const useProblemsStore = defineStore('problems', () => {
-  const userData = ref<UserData>(loadLocal())
+  const userData = ref<UserData>({ added: [], modified: {}, deleted: [] })
   let synced = false
 
   /** 从 D1 加载数据 */
@@ -35,16 +23,14 @@ export const useProblemsStore = defineStore('problems', () => {
         modified: data.modified ?? {},
         deleted: data.deleted ?? [],
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(userData.value))
       synced = true
     } catch {
-      // API 不可用时使用 localStorage
+      // API 不可用时使用空数据
     }
   }
 
-  /** 保存到 D1 + localStorage */
+  /** 保存到 D1 */
   function persist() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData.value))
     if (synced) {
       api.post('/user-problems', userData.value).catch(() => {})
     }
