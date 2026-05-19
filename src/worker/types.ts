@@ -10,7 +10,7 @@ interface D1Result {
   meta: Record<string, unknown>
 }
 
-interface D1Database {
+export interface D1Database {
   prepare(sql: string): D1PreparedStatement
   batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result[]>
   exec(sql: string): Promise<D1Result>

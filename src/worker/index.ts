@@ -1,4 +1,4 @@
-import type { Env, D1PreparedStatement } from './types'
+import type { Env, D1PreparedStatement, D1Database } from './types'
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
