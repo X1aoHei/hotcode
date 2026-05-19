@@ -217,19 +217,29 @@ const statsBar = computed(() => {
 
       <!-- 操作行 -->
       <div class="action-row">
-        <el-button type="primary" class="action-btn" @click="randomPick">🎲 随机抽题</el-button>
-        <el-button type="warning" class="action-btn" @click="randomFromUnmastered">🔁 待复习</el-button>
+        <el-button type="primary" class="action-btn" @click="randomPick">
+          <span class="btn-icon">🎲</span><span class="btn-text">随机抽题</span>
+        </el-button>
+        <el-button type="warning" class="action-btn" @click="randomFromUnmastered">
+          <span class="btn-icon">🔁</span><span class="btn-text">待复习</span>
+        </el-button>
         <el-button
           :type="showWrongSetOnly ? 'danger' : 'default'"
           class="action-btn"
           @click="showWrongSetOnly = !showWrongSetOnly"
-        >❌ 错题集</el-button>
+        >
+          <span class="btn-icon">❌</span><span class="btn-text">错题集</span>
+        </el-button>
         <el-button
-          class="action-btn-sort"
+          class="action-btn action-btn-sort"
           :class="{ 'sort-active': sortOrder !== 'default' }"
           @click="toggleSort"
-        >{{ sortLabel }}</el-button>
-        <el-button class="action-btn-clear" @click="clearFilters">清空</el-button>
+        >
+          <span class="btn-icon">↕️</span><span class="btn-text">{{ sortLabel }}</span>
+        </el-button>
+        <el-button class="action-btn action-btn-clear" @click="clearFilters">
+          <span class="btn-icon">🧹</span><span class="btn-text">清空</span>
+        </el-button>
         <span class="result-count">{{ filtered.length }} 道</span>
       </div>
       <!-- 新增题目 -->
@@ -345,31 +355,37 @@ const statsBar = computed(() => {
   width: 100%;
 }
 .action-row {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
 }
 .action-btn {
-  flex: 1;
-  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 6px;
+  font-size: 13px;
+  white-space: nowrap;
 }
-.action-btn-clear {
-  padding: 8px 12px;
+.btn-icon {
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
 }
-.action-btn-sort {
-  padding: 8px 12px;
-  font-weight: 600;
+.btn-text {
+  line-height: 1;
 }
 .sort-active {
   color: #2563eb !important;
   border-color: #93c5fd !important;
 }
 .result-count {
-  margin-left: auto;
   font-size: 13px;
   color: #6b7280;
   white-space: nowrap;
+  text-align: right;
 }
 
 /* ── 题目列表 ── */
@@ -544,8 +560,14 @@ const statsBar = computed(() => {
   .filter-card {
     padding: 16px;
   }
+  .action-row {
+    grid-template-columns: repeat(5, auto) 1fr;
+    gap: 8px;
+  }
   .action-btn {
     flex: none;
+    padding: 8px 14px;
+    font-size: 14px;
   }
   .item-title {
     font-size: 15px;
