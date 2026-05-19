@@ -208,60 +208,148 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
       db.prepare('DELETE FROM drafts'),
     ]
 
-    if (body.data?.userProblems) {
-      for (const r of body.data.userProblems) {
-        stmts.push(
-          db.prepare('INSERT INTO user_problems (id, data, created_at, updated_at) VALUES (?, ?, ?, ?)')
-            .bind(r.id, r.data, r.created_at ?? now, r.updated_at ?? now)
-        )
+    // 判断格式：新格式有 data.userProblems，旧格式有 data['hot100-user-problems-v1']
+    const isLegacy = body.data && !body.data.userProblems
+
+    if (isLegacy) {
+      // ── 旧格式（localStorage key-value）──
+      const data = body.data as Record<string, any>
+
+      // 题目
+      const problemsData = data['hot100-user-problems-v1']
+      if (problemsData) {
+        const parsed = typeof problemsData === 'string' ? JSON.parse(problemsData) : problemsData
+        if (parsed.added) {
+          for (const p of parsed.added) {
+            stmts.push(
+              db.prepare('INSERT INTO user_problems (id, data, created_at, updated_at) VALUES (?, ?, ?, ?)')
+                .bind(p.id, JSON.stringify(p), now, now)
+            )
+          }
+        }
+        if (parsed.modified) {
+          for (const [id, p] of Object.entries(parsed.modified)) {
+            stmts.push(
+              db.prepare('INSERT INTO modified_problems (problem_id, data, updated_at) VALUES (?, ?, ?)')
+                .bind(Number(id), JSON.stringify(p), now)
+            )
+          }
+        }
+        if (parsed.deleted) {
+          for (const id of parsed.deleted) {
+            stmts.push(
+              db.prepare('INSERT INTO deleted_problems (problem_id, deleted_at) VALUES (?, ?)')
+                .bind(id, now)
+            )
+          }
+        }
       }
-    }
-    if (body.data?.modifiedProblems) {
-      for (const r of body.data.modifiedProblems) {
-        stmts.push(
-          db.prepare('INSERT INTO modified_problems (problem_id, data, updated_at) VALUES (?, ?, ?)')
-            .bind(r.problem_id, r.data, r.updated_at ?? now)
-        )
+
+      // 进度
+      const progressData = data['hot100-progress-v1']
+      if (progressData) {
+        const parsed = typeof progressData === 'string' ? JSON.parse(progressData) : progressData
+        const wrongSetSet = new Set(parsed.wrongSet ?? [])
+        const allIds = new Set([
+          ...Object.keys(parsed.status ?? {}).map(Number),
+          ...Object.keys(parsed.lastViewed ?? {}).map(Number),
+          ...(parsed.wrongSet ?? []),
+        ])
+        for (const id of allIds) {
+          stmts.push(
+            db.prepare('INSERT INTO progress (problem_id, status, last_viewed, is_wrong) VALUES (?, ?, ?, ?)')
+              .bind(id, parsed.status?.[id] ?? 'unseen', parsed.lastViewed?.[id] ?? null, wrongSetSet.has(id) ? 1 : 0)
+          )
+        }
       }
-    }
-    if (body.data?.deletedProblems) {
-      for (const r of body.data.deletedProblems) {
-        stmts.push(
-          db.prepare('INSERT INTO deleted_problems (problem_id, deleted_at) VALUES (?, ?)')
-            .bind(r.problem_id, r.deleted_at ?? now)
-        )
+
+      // 组合
+      const groupsData = data['hot100-groups-v1']
+      if (groupsData) {
+        const parsed = typeof groupsData === 'string' ? JSON.parse(groupsData) : groupsData
+        for (const g of parsed) {
+          stmts.push(
+            db.prepare('INSERT INTO groups (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+              .bind(g.id, g.name, g.note ?? '', JSON.stringify(g.problemIds), g.createdAt, g.updatedAt)
+          )
+        }
       }
-    }
-    if (body.data?.progress) {
-      for (const r of body.data.progress) {
-        stmts.push(
-          db.prepare('INSERT INTO progress (problem_id, status, last_viewed, is_wrong) VALUES (?, ?, ?, ?)')
-            .bind(r.problem_id, r.status, r.last_viewed, r.is_wrong)
-        )
+
+      // 笔记和草稿
+      for (const [key, value] of Object.entries(data)) {
+        if (key.startsWith('hot100-note-')) {
+          const problemId = Number(key.replace('hot100-note-', ''))
+          const content = typeof value === 'string' ? value : JSON.stringify(value)
+          stmts.push(
+            db.prepare('INSERT OR REPLACE INTO notes (problem_id, content, updated_at) VALUES (?, ?, ?)')
+              .bind(problemId, content, now)
+          )
+        } else if (key.startsWith('hot100-draft-')) {
+          const problemId = Number(key.replace('hot100-draft-', ''))
+          const content = typeof value === 'string' ? value : JSON.stringify(value)
+          stmts.push(
+            db.prepare('INSERT OR REPLACE INTO drafts (problem_id, content, updated_at) VALUES (?, ?, ?)')
+              .bind(problemId, content, now)
+          )
+        }
       }
-    }
-    if (body.data?.groups) {
-      for (const r of body.data.groups) {
-        stmts.push(
-          db.prepare('INSERT INTO groups (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-            .bind(r.id, r.name, r.note, r.problem_ids, r.created_at, r.updated_at)
-        )
+    } else {
+      // ── 新格式（D1 表行）──
+      if (body.data?.userProblems) {
+        for (const r of body.data.userProblems) {
+          stmts.push(
+            db.prepare('INSERT INTO user_problems (id, data, created_at, updated_at) VALUES (?, ?, ?, ?)')
+              .bind(r.id, r.data, r.created_at ?? now, r.updated_at ?? now)
+          )
+        }
       }
-    }
-    if (body.data?.notes) {
-      for (const r of body.data.notes) {
-        stmts.push(
-          db.prepare('INSERT INTO notes (problem_id, content, updated_at) VALUES (?, ?, ?)')
-            .bind(r.problem_id, r.content, r.updated_at ?? now)
-        )
+      if (body.data?.modifiedProblems) {
+        for (const r of body.data.modifiedProblems) {
+          stmts.push(
+            db.prepare('INSERT INTO modified_problems (problem_id, data, updated_at) VALUES (?, ?, ?)')
+              .bind(r.problem_id, r.data, r.updated_at ?? now)
+          )
+        }
       }
-    }
-    if (body.data?.drafts) {
-      for (const r of body.data.drafts) {
-        stmts.push(
-          db.prepare('INSERT INTO drafts (problem_id, content, updated_at) VALUES (?, ?, ?)')
-            .bind(r.problem_id, r.content, r.updated_at ?? now)
-        )
+      if (body.data?.deletedProblems) {
+        for (const r of body.data.deletedProblems) {
+          stmts.push(
+            db.prepare('INSERT INTO deleted_problems (problem_id, deleted_at) VALUES (?, ?)')
+              .bind(r.problem_id, r.deleted_at ?? now)
+          )
+        }
+      }
+      if (body.data?.progress) {
+        for (const r of body.data.progress) {
+          stmts.push(
+            db.prepare('INSERT INTO progress (problem_id, status, last_viewed, is_wrong) VALUES (?, ?, ?, ?)')
+              .bind(r.problem_id, r.status, r.last_viewed, r.is_wrong)
+          )
+        }
+      }
+      if (body.data?.groups) {
+        for (const r of body.data.groups) {
+          stmts.push(
+            db.prepare('INSERT INTO groups (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+              .bind(r.id, r.name, r.note, r.problem_ids, r.created_at, r.updated_at)
+          )
+        }
+      }
+      if (body.data?.notes) {
+        for (const r of body.data.notes) {
+          stmts.push(
+            db.prepare('INSERT INTO notes (problem_id, content, updated_at) VALUES (?, ?, ?)')
+              .bind(r.problem_id, r.content, r.updated_at ?? now)
+          )
+        }
+      }
+      if (body.data?.drafts) {
+        for (const r of body.data.drafts) {
+          stmts.push(
+            db.prepare('INSERT INTO drafts (problem_id, content, updated_at) VALUES (?, ?, ?)')
+              .bind(r.problem_id, r.content, r.updated_at ?? now)
+          )
+        }
       }
     }
 
