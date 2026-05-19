@@ -142,10 +142,14 @@ async function loadNote(id: number) {
 }
 async function saveNote() {
   if (!problem.value) return
-  noteContent.value = noteDraft.value
-  await api.put(`/notes/${problem.value.id}`, { content: noteDraft.value }).catch(() => {})
-  editingNote.value = false
-  ElMessage.success('笔记已保存')
+  try {
+    await api.put(`/notes/${problem.value.id}`, { content: noteDraft.value })
+    noteContent.value = noteDraft.value
+    editingNote.value = false
+    ElMessage.success('笔记已保存')
+  } catch (e) {
+    ElMessage.error('保存失败：' + (e as Error).message)
+  }
 }
 function startEditNote() {
   noteDraft.value = noteContent.value
@@ -157,11 +161,15 @@ function cancelEditNote() {
 }
 async function deleteNote() {
   if (!problem.value) return
-  noteContent.value = ''
-  noteDraft.value = ''
-  await api.delete(`/notes/${problem.value.id}`).catch(() => {})
-  editingNote.value = false
-  ElMessage.success('笔记已删除')
+  try {
+    await api.delete(`/notes/${problem.value.id}`)
+    noteContent.value = ''
+    noteDraft.value = ''
+    editingNote.value = false
+    ElMessage.success('笔记已删除')
+  } catch (e) {
+    ElMessage.error('删除失败：' + (e as Error).message)
+  }
 }
 
 /** 代码字号（全屏模式下双指缩放） */
