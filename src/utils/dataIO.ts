@@ -7,8 +7,6 @@
 
 import { api } from './api'
 
-const PREFIX = 'hot100-'
-
 export interface ExportPayload {
   version: number
   exportedAt: string
@@ -58,38 +56,4 @@ export function importData(file: File): Promise<{ count: number }> {
 
     reader.readAsText(file)
   })
-}
-
-/** 迁移 localStorage 旧数据到 D1 */
-export async function migrateLocalToD1(): Promise<boolean> {
-  const data: Record<string, unknown> = {}
-  let hasData = false
-
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key && key.startsWith(PREFIX)) {
-      try {
-        data[key] = JSON.parse(localStorage.getItem(key)!)
-      } catch {
-        data[key] = localStorage.getItem(key)
-      }
-      hasData = true
-    }
-  }
-
-  if (!hasData) return false
-
-  try {
-    await api.post('/migrate', data)
-    // 迁移成功后清除 localStorage 旧数据
-    const keysToRemove: string[] = []
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && key.startsWith(PREFIX)) keysToRemove.push(key)
-    }
-    keysToRemove.forEach((k) => localStorage.removeItem(k))
-    return true
-  } catch {
-    return false
-  }
 }
