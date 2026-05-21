@@ -54,6 +54,17 @@ const showEditModal = ref(false)
 
 // ── 组合管理弹窗 ──
 const showGroupModal = ref(false)
+const editingGroup = ref<any>(null)
+
+function openGroupEdit(group: any) {
+  editingGroup.value = group
+  showGroupModal.value = true
+}
+
+function openGroupCreate() {
+  editingGroup.value = null
+  showGroupModal.value = true
+}
 
 // ── 当前题目所属的组合 ──
 const relatedGroups = computed(() => {
@@ -377,11 +388,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     <section class="section-card">
       <div class="section-header">
         <span>🔗 关联题目</span>
-        <button class="small-btn" @click="showGroupModal = true">管理组合</button>
+        <div class="group-actions">
+          <button v-if="relatedGroups.length > 0" class="small-btn" @click="openGroupEdit(relatedGroups[0])">编辑组合</button>
+          <button class="small-btn" @click="openGroupCreate">新建组合</button>
+        </div>
       </div>
       <div class="section-body">
         <div v-if="relatedGroups.length > 0" class="related-groups">
-          <div v-for="group in relatedGroups" :key="group.id" class="related-group">
+          <div v-for="group in relatedGroups" :key="group.id" class="related-group" @click="openGroupEdit(group)">
             <div class="group-name">{{ group.name }}</div>
             <div v-if="group.note" class="group-note">{{ group.note }}</div>
             <div class="group-problems">
@@ -389,7 +403,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
                 v-for="id in group.problemIds.filter(pid => pid !== problem?.id)"
                 :key="id"
                 class="problem-chip"
-                @click="router.push({ name: 'detail', params: { id: String(id) } })"
+                @click.stop="router.push({ name: 'detail', params: { id: String(id) } })"
               >
                 {{ id }}. {{ getProblemTitle(id) }}
               </span>
@@ -583,6 +597,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     <!-- 组合管理弹窗 -->
     <GroupFormModal
       :visible="showGroupModal"
+      :group="editingGroup"
       :default-problem-id="problem?.id"
       @close="showGroupModal = false"
     />
@@ -867,6 +882,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   background: #f9fafb;
   border-radius: 8px;
   border: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.related-group:hover {
+  border-color: #93c5fd;
 }
 .related-group .group-name {
   font-size: 14px;
@@ -983,6 +1003,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 }
 .small-btn:active {
   background: #f3f4f6;
+}
+.group-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* ── 内容 ── */
