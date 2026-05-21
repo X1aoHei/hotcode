@@ -172,6 +172,14 @@ const statsBar = computed(() => {
   const w = progress.wrongSet.length
   return { m, l, u, w }
 })
+
+const wrongStats = computed(() => {
+  const wrongProblems = problems.value.filter((p) => progress.isWrong(p.id))
+  const easy = wrongProblems.filter((p) => p.difficulty === 'Easy').length
+  const medium = wrongProblems.filter((p) => p.difficulty === 'Medium').length
+  const hard = wrongProblems.filter((p) => p.difficulty === 'Hard').length
+  return { easy, medium, hard }
+})
 </script>
 
 <template>
@@ -182,6 +190,14 @@ const statsBar = computed(() => {
       <span class="stat-item stat-learning">🔥 学习中 {{ statsBar.l }}</span>
       <span class="stat-item stat-unseen">📋 未学习 {{ statsBar.u }}</span>
       <span class="stat-item stat-wrong">❌ 错题集 {{ statsBar.w }}</span>
+    </div>
+
+    <!-- 错题集统计 -->
+    <div v-if="statsBar.w > 0" class="wrong-stats">
+      <span class="wrong-stats-label">错题分布：</span>
+      <span class="wrong-stats-item wrong-easy">Easy {{ wrongStats.easy }}</span>
+      <span class="wrong-stats-item wrong-medium">Medium {{ wrongStats.medium }}</span>
+      <span class="wrong-stats-item wrong-hard">Hard {{ wrongStats.hard }}</span>
     </div>
 
     <!-- 筛选区 -->
@@ -348,6 +364,29 @@ const statsBar = computed(() => {
 .stat-learning { background: #fef9c3; color: #b45309; }
 .stat-unseen   { background: #f1f5f9; color: #475569; }
 .stat-wrong    { background: #fee2e2; color: #dc2626; }
+
+/* 错题集统计 */
+.wrong-stats {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.wrong-stats-label {
+  font-weight: 600;
+  color: #6b7280;
+}
+.wrong-stats-item {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.wrong-easy   { background: #dcfce7; color: #15803d; }
+.wrong-medium { background: #fef9c3; color: #b45309; }
+.wrong-hard   { background: #fee2e2; color: #dc2626; }
 
 /* ── 筛选卡片 ── */
 .filter-card {

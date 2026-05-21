@@ -12,6 +12,9 @@ const total = computed(() => problemsStore.allProblems.length)
 const masteryRate = computed(() =>
   total.value === 0 ? 0 : Math.round((progress.stats.mastered / total.value) * 100)
 )
+const wrongRate = computed(() =>
+  total.value === 0 ? 0 : Math.round((progress.wrongSet.length / total.value) * 100)
+)
 
 function goHome() {
   router.push('/')
@@ -38,6 +41,20 @@ function goHome() {
           :stroke-width="6"
           :show-text="false"
           status="success"
+          class="header-prog-bar"
+        />
+      </div>
+
+      <div class="header-progress header-wrong">
+        <div class="progress-meta">
+          <span class="progress-nums wrong-nums">{{ progress.wrongSet.length }}<em>错题</em></span>
+          <span class="progress-percent wrong-percent">{{ wrongRate }}%</span>
+        </div>
+        <el-progress
+          :percentage="wrongRate"
+          :stroke-width="6"
+          :show-text="false"
+          status="exception"
           class="header-prog-bar"
         />
       </div>
@@ -144,6 +161,15 @@ function goHome() {
   font-size: 12px;
   font-weight: 600;
   color: #16a34a;
+}
+.wrong-percent {
+  color: #dc2626;
+}
+.wrong-nums {
+  color: #dc2626;
+}
+.header-wrong {
+  margin-left: 16px;
 }
 .header-prog-bar {
   width: 120px;
