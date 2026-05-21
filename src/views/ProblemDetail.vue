@@ -68,17 +68,21 @@ function getProblemTitle(id: number): string {
 async function handleDelete() {
   if (!problem.value) return
   await ElMessageBox.confirm(
-    problemsStore.isCustom(problem.value.id)
-      ? '确认删除这道自定义题目？删除后无法恢复。'
-      : '确认从题库中删除这道内置题目？（可在列表页重新添加）',
+    '确认删除这道题目？删除后可在列表中撤销。',
     '删除确认',
     { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' }
   )
-  const id = problem.value.id
-  problemsStore.deleteProblem(id)
+  problemsStore.deleteProblem(problem.value.id)
   ElMessage.success('题目已删除')
-  router.push('/')
 }
+
+function handleRestore() {
+  if (!problem.value) return
+  problemsStore.restoreProblem(problem.value.id)
+  ElMessage.success('已撤销删除')
+}
+
+const isDeleted = computed(() => problem.value ? problemsStore.isDeleted(problem.value.id) : false)
 
 const showApproach = ref(false)
 const showCode = ref(false)
@@ -320,14 +324,18 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
     <!-- 题目标题 + 元数据 -->
     <div class="title-card">
       <div class="title-row">
-        <h1 class="problem-title">
+        <h1 :class="['problem-title', { 'title-deleted': isDeleted }]">
           <span class="problem-id">{{ problem.id }}.</span>{{ problem.title }}
         </h1>
         <div class="title-actions">
-          <span v-if="problemsStore.isCustom(problem.id)" class="title-badge badge-custom">自定义</span>
+          <span v-if="isDeleted" class="title-badge badge-deleted">已删除</span>
+          <span v-else-if="problemsStore.isCustom(problem.id)" class="title-badge badge-custom">自定义</span>
           <span v-else-if="problemsStore.isModified(problem.id)" class="title-badge badge-modified">已编辑</span>
-          <button class="icon-btn" title="编辑题目" @click="showEditModal = true">✏️</button>
-          <button class="icon-btn icon-btn--danger" title="删除题目" @click="handleDelete">🗑️</button>
+          <button v-if="isDeleted" class="icon-btn icon-btn--restore" title="撤销删除" @click="handleRestore">↩️</button>
+          <template v-else>
+            <button class="icon-btn" title="编辑题目" @click="showEditModal = true">✏️</button>
+            <button class="icon-btn icon-btn--danger" title="删除题目" @click="handleDelete">🗑️</button>
+          </template>
         </div>
       </div>
       <div class="meta-row">
@@ -724,6 +732,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 }
 .badge-custom   { background: #e0f2fe; color: #0369a1; }
 .badge-modified { background: #fef9c3; color: #92400e; }
+.badge-deleted  { background: #fee2e2; color: #dc2626; }
+.title-deleted {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -740,6 +753,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
 .icon-btn:active { background: #f3f4f6; }
 .icon-btn--danger { border-color: #fecaca; }
 .icon-btn--danger:active { background: #fee2e2; }
+.icon-btn--restore { border-color: #fde68a; background: #fffbeb; }
+.icon-btn--restore:active { background: #fef3c7; }
 .meta-row {
   display: flex;
   flex-wrap: wrap;

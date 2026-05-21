@@ -39,14 +39,16 @@ export const useProblemsStore = defineStore('problems', () => {
   // 启动时从 D1 同步
   sync()
 
-  const allProblems = computed<Problem[]>(() => {
+  const allProblems = computed<(Problem & { _deleted?: boolean })[]>(() => {
     const deletedSet = new Set(userData.value.deleted)
-    const list: Problem[] = []
+    const list: (Problem & { _deleted?: boolean })[] = []
     for (const p of staticProblems) {
-      if (deletedSet.has(p.id)) continue
-      list.push(userData.value.modified[p.id] ?? p)
+      const base = userData.value.modified[p.id] ?? p
+      list.push(deletedSet.has(p.id) ? { ...base, _deleted: true } : base)
     }
-    list.push(...userData.value.added)
+    for (const p of userData.value.added) {
+      list.push(deletedSet.has(p.id) ? { ...p, _deleted: true } : p)
+    }
     return list
   })
 
@@ -83,16 +85,20 @@ export const useProblemsStore = defineStore('problems', () => {
   }
 
   function deleteProblem(id: number) {
-    const isStatic = staticProblems.some((sp) => sp.id === id)
-    if (isStatic) {
-      if (!userData.value.deleted.includes(id)) {
-        userData.value.deleted = [...userData.value.deleted, id]
-      }
-      const { [id]: _, ...rest } = userData.value.modified
-      userData.value.modified = rest
-    } else {
-      userData.value.added = userData.value.added.filter((p) => p.id !== id)
+    if (!userData.value.deleted.includes(id)) {
+      userData.value.deleted = [...userData.value.deleted, id]
     }
+    const { [id]: _, ...rest } = userData.value.modified
+    userData.value.modified = rest
+    persist()
+  }
+
+  function isDeleted(id: number) {
+    return userData.value.deleted.includes(id)
+  }
+
+  function restoreProblem(id: number) {
+    userData.value.deleted = userData.value.deleted.filter((d) => d !== id)
     persist()
   }
 
@@ -118,9 +124,11 @@ export const useProblemsStore = defineStore('problems', () => {
     getById,
     isCustom,
     isModified,
+    isDeleted,
     addProblem,
     updateProblem,
     deleteProblem,
+    restoreProblem,
     resetProblem,
     nextCustomId,
     idExists,

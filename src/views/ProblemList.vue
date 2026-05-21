@@ -159,6 +159,12 @@ function quickToggleStatus(e: Event, id: number) {
   progress.setStatus(id, next)
 }
 
+function restoreProblem(e: Event, id: number) {
+  e.stopPropagation()
+  problemsStore.restoreProblem(id)
+  ElMessage.success('已撤销删除')
+}
+
 const statsBar = computed(() => {
   const m = progress.stats.mastered
   const l = progress.stats.learning
@@ -267,7 +273,7 @@ const statsBar = computed(() => {
       <li
         v-for="p in filtered"
         :key="p.id"
-        class="problem-item"
+        :class="['problem-item', { 'problem-deleted': p._deleted }]"
         @click="openProblem(p.id)"
       >
         <div class="item-left">
@@ -277,7 +283,7 @@ const statsBar = computed(() => {
           <span v-if="getGroupCount(p.id) > 0" class="item-badge badge-group" :title="`属于 ${getGroupCount(p.id)} 个组合`">组{{ getGroupCount(p.id) }}</span>
         </div>
         <div class="item-body">
-          <div class="item-title">{{ p.title }}</div>
+          <div :class="['item-title', { 'title-deleted': p._deleted }]">{{ p.title }}</div>
           <div class="item-meta">
             <span :class="['diff-badge', diffClass(p.difficulty)]">{{ p.difficulty }}</span>
             <span v-for="t in p.tags.slice(0, 3)" :key="t" class="tag-pill">{{ t }}</span>
@@ -285,7 +291,13 @@ const statsBar = computed(() => {
           </div>
         </div>
         <div class="item-right">
+          <button
+            v-if="p._deleted"
+            class="restore-btn"
+            @click.stop="restoreProblem($event, p.id)"
+          >撤销</button>
           <el-tag
+            v-else
             :type="statusTagType(progress.getStatus(p.id))"
             size="small"
             effect="light"
@@ -453,6 +465,31 @@ const statsBar = computed(() => {
 }
 .problem-item:active {
   background: #f0f9ff;
+}
+.problem-deleted {
+  opacity: 0.6;
+}
+.problem-deleted:active {
+  background: #fef3c7;
+}
+.title-deleted {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+.restore-btn {
+  padding: 4px 10px;
+  border: 1px solid #f59e0b;
+  border-radius: 4px;
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.restore-btn:active {
+  background: #fef3c7;
 }
 
 /* 新增题目按钮 */
