@@ -21,8 +21,13 @@ const allTags = computed(() => problemsStore.allTags)
 // ── 新增题目弹窗 ──
 const showFormModal = ref(false)
 
+function openInNewTab(id: number) {
+  const resolved = router.resolve({ name: 'detail', params: { id: String(id) } })
+  window.open(resolved.href, '_blank')
+}
+
 function onFormSaved(id: number) {
-  router.push({ name: 'detail', params: { id: String(id) } })
+  openInNewTab(id)
 }
 
 const keyword = ref('')
@@ -84,14 +89,14 @@ function getGroupCount(problemId: number): number {
 }
 
 function openProblem(id: number) {
-  router.push({ name: 'detail', params: { id: String(id) } })
+  openInNewTab(id)
 }
 
 function randomPick() {
   const pool = filtered.value.length ? filtered.value : problems.value
   const target = pool[Math.floor(Math.random() * pool.length)]
   ElMessage.success(`随机：${target.id}. ${target.title}`)
-  router.push({ name: 'detail', params: { id: String(target.id) } })
+  openInNewTab(target.id)
 }
 
 function randomFromUnmastered() {
@@ -102,7 +107,7 @@ function randomFromUnmastered() {
   }
   const target = pool[Math.floor(Math.random() * pool.length)]
   ElMessage.success(`待复习：${target.id}. ${target.title}`)
-  router.push({ name: 'detail', params: { id: String(target.id) } })
+  openInNewTab(target.id)
 }
 
 function clearFilters() {
