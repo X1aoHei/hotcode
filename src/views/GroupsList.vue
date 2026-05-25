@@ -84,15 +84,12 @@ function onModalClose() {
         <!-- 题目标签 -->
         <div class="group-problems">
           <span
-            v-for="id in group.problemIds.slice(0, 5)"
+            v-for="id in group.problemIds"
             :key="id"
             class="problem-chip"
             @click.stop="router.push({ name: 'detail', params: { id: String(id) } })"
           >
             {{ id }}. {{ getProblemTitle(id) }}
-          </span>
-          <span v-if="group.problemIds.length > 5" class="more-chip">
-            +{{ group.problemIds.length - 5 }}
           </span>
         </div>
 
@@ -226,14 +223,6 @@ function onModalClose() {
 .problem-chip:active {
   background: #e5e7eb;
 }
-.more-chip {
-  font-size: 12px;
-  padding: 4px 8px;
-  background: #e5e7eb;
-  border-radius: 6px;
-  color: #6b7280;
-}
-
 /* 操作按钮 */
 .group-actions {
   display: flex;
