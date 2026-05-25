@@ -84,7 +84,7 @@ function onModalClose() {
         <!-- 题目标签 -->
         <div class="group-problems">
           <span
-            v-for="id in group.problemIds"
+            v-for="id in [...group.problemIds].sort((a, b) => a - b)"
             :key="id"
             class="problem-chip"
             @click.stop="router.push({ name: 'detail', params: { id: String(id) } })"
