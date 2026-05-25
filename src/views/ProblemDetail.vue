@@ -32,6 +32,9 @@ const problem = shallowRef<Problem | null>(null)
 function syncProblem() {
   const id = Number(route.params.id)
   problem.value = id ? (problemsStore.allProblems.find((p) => p.id === id) ?? null) : null
+  if (problem.value) {
+    document.title = `${problem.value.id}. ${problem.value.title}`
+  }
 }
 
 // setup 期间同步调用，此时路由已提交，params 已就绪
@@ -311,7 +314,10 @@ function onKey(e: KeyboardEvent) {
   else if (e.key === 'c' || e.key === 'C') showCode.value = !showCode.value
 }
 onMounted(() => window.addEventListener('keydown', onKey))
-onUnmounted(() => window.removeEventListener('keydown', onKey))
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKey)
+  document.title = 'LeetCode Hot 100 · 记忆题库'
+})
 </script>
 
 <template>
