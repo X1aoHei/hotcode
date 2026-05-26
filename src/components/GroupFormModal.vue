@@ -58,10 +58,6 @@ function handleSave() {
     ElMessage.error('请输入组合名称')
     return
   }
-  if (selectedProblemIds.value.length < 2) {
-    ElMessage.error('至少选择 2 道题目')
-    return
-  }
 
   if (isEdit.value && props.group) {
     groupsStore.updateGroup(props.group.id, {
@@ -116,7 +112,7 @@ function handleSave() {
                     :value="opt.value"
                   />
                 </el-select>
-                <p class="field-hint">至少选择 2 道题目</p>
+                <p class="field-hint">可选择 1 道或多道题目</p>
               </div>
 
               <div class="field field--full">
