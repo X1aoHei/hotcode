@@ -93,7 +93,12 @@ function openProblem(id: number) {
 }
 
 function randomPick() {
-  const pool = filtered.value.length ? filtered.value : problems.value
+  const base = filtered.value.length ? filtered.value : problems.value
+  const pool = base.filter((p) => progress.getStatus(p.id) === 'mastered')
+  if (!pool.length) {
+    ElMessage.warning('没有已掌握的题目')
+    return
+  }
   const target = pool[Math.floor(Math.random() * pool.length)]
   ElMessage.success(`随机：${target.id}. ${target.title}`)
   openInNewTab(target.id)
