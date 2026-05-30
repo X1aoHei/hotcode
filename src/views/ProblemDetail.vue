@@ -79,6 +79,11 @@ function getProblemTitle(id: number): string {
   return problemsStore.getById(id)?.title ?? `#${id}`
 }
 
+function openInNewTab(id: number) {
+  const resolved = router.resolve({ name: 'detail', params: { id: String(id) } })
+  window.open(resolved.href, '_blank')
+}
+
 async function handleDelete() {
   if (!problem.value) return
   await ElMessageBox.confirm(
@@ -409,7 +414,7 @@ onUnmounted(() => {
                 v-for="id in group.problemIds.filter(pid => pid !== problem?.id)"
                 :key="id"
                 class="problem-chip"
-                @click.stop="router.push({ name: 'detail', params: { id: String(id) } })"
+                @click.stop="openInNewTab(id)"
               >
                 {{ id }}. {{ getProblemTitle(id) }}
               </span>
