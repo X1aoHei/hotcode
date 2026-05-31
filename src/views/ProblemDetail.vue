@@ -411,7 +411,7 @@ onUnmounted(() => {
             <div v-if="group.note" class="group-note">{{ group.note }}</div>
             <div class="group-problems">
               <span
-                v-for="id in group.problemIds.filter(pid => pid !== problem?.id)"
+                v-for="id in group.problemIds.filter(pid => pid !== problem?.id).sort((a, b) => a - b)"
                 :key="id"
                 class="problem-chip"
                 @click.stop="openInNewTab(id)"
