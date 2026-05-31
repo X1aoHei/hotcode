@@ -125,10 +125,18 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
   if (pathname === '/api/groups' && method === 'POST') {
     const groups = await request.json() as any[]
     console.log('[SQL] POST /api/groups', { count: groups.length })
-    const stmts = [loggedPrepare(db, 'DELETE FROM groups')]
+    const incomingIds = new Set(groups.map((g: any) => g.id))
+    const existing = await loggedPrepare(db, 'SELECT id FROM groups').all()
+    const toDelete = (existing.results as any[]).map((r: any) => r.id).filter((id: string) => !incomingIds.has(id))
+    const stmts = []
+    if (toDelete.length > 0) {
+      for (const id of toDelete) {
+        stmts.push(loggedPrepare(db, 'DELETE FROM groups WHERE id = ?', [id]).bind(id))
+      }
+    }
     for (const g of groups) {
       stmts.push(
-        loggedPrepare(db, 'INSERT INTO groups (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [g.id, g.name, g.note ?? '', JSON.stringify(g.problemIds), g.createdAt, g.updatedAt])
+        loggedPrepare(db, 'INSERT OR REPLACE INTO groups (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [g.id, g.name, g.note ?? '', JSON.stringify(g.problemIds), g.createdAt, g.updatedAt])
           .bind(g.id, g.name, g.note ?? '', JSON.stringify(g.problemIds), g.createdAt, g.updatedAt)
       )
     }
@@ -153,10 +161,18 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
   if (pathname === '/api/review-rounds' && method === 'POST') {
     const rounds = await request.json() as any[]
     console.log('[SQL] POST /api/review-rounds', { count: rounds.length })
-    const stmts = [loggedPrepare(db, 'DELETE FROM review_rounds')]
+    const incomingIds = new Set(rounds.map((r: any) => r.id))
+    const existing = await loggedPrepare(db, 'SELECT id FROM review_rounds').all()
+    const toDelete = (existing.results as any[]).map((r: any) => r.id).filter((id: string) => !incomingIds.has(id))
+    const stmts = []
+    if (toDelete.length > 0) {
+      for (const id of toDelete) {
+        stmts.push(loggedPrepare(db, 'DELETE FROM review_rounds WHERE id = ?', [id]).bind(id))
+      }
+    }
     for (const r of rounds) {
       stmts.push(
-        loggedPrepare(db, 'INSERT INTO review_rounds (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [r.id, r.name, r.note ?? '', JSON.stringify(r.problemIds), r.createdAt, r.updatedAt])
+        loggedPrepare(db, 'INSERT OR REPLACE INTO review_rounds (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [r.id, r.name, r.note ?? '', JSON.stringify(r.problemIds), r.createdAt, r.updatedAt])
           .bind(r.id, r.name, r.note ?? '', JSON.stringify(r.problemIds), r.createdAt, r.updatedAt)
       )
     }
