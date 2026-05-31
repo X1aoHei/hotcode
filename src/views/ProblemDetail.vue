@@ -87,7 +87,7 @@ function openReviewRoundCreate() {
 }
 
 // ── 当前题目所属的复习轮次 ──
-const relatedRounds = computed(() => {
+const relatedRounds = computed<import('@/types/reviewRound').ReviewRound[]>(() => {
   if (!problem.value) return []
   return reviewRoundsStore.getRoundsByProblemId(problem.value.id)
 })
