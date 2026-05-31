@@ -92,6 +92,25 @@ const relatedRounds = computed<import('@/types/reviewRound').ReviewRound[]>(() =
   return reviewRoundsStore.getRoundsByProblemId(problem.value.id)
 })
 
+// ── 可加入的轮次（排除已加入的） ──
+const availableRounds = computed(() => {
+  if (!problem.value) return []
+  const relatedIds = new Set(relatedRounds.value.map(r => r.id))
+  return reviewRoundsStore.allRounds.filter(r => !relatedIds.has(r.id))
+})
+
+function addToRound(roundId: string) {
+  if (!problem.value) return
+  reviewRoundsStore.addProblemToRound(roundId, problem.value.id)
+  ElMessage.success('已加入复习轮次')
+}
+
+function removeFromRound(round: import('@/types/reviewRound').ReviewRound) {
+  if (!problem.value) return
+  reviewRoundsStore.removeProblemFromRound(round.id, problem.value.id)
+  ElMessage.success('已从轮次移除')
+}
+
 // ── 当前题目所属的组合 ──
 const relatedGroups = computed(() => {
   if (!problem.value) return []
@@ -423,14 +442,27 @@ onUnmounted(() => {
       <div class="section-header">
         <span>📝 复习轮次</span>
         <div class="group-actions">
+          <el-dropdown v-if="availableRounds.length > 0" trigger="click" @command="addToRound">
+            <button class="small-btn small-btn--primary">加入轮次 ▾</button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-for="r in availableRounds" :key="r.id" :command="r.id">
+                  {{ r.name }} ({{ r.problemIds.length }}题)
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <button v-if="relatedRounds.length > 0" class="small-btn" @click="openReviewRoundEdit(relatedRounds[0])">编辑轮次</button>
           <button class="small-btn" @click="openReviewRoundCreate">新建轮次</button>
         </div>
       </div>
       <div class="section-body">
         <div v-if="relatedRounds.length > 0" class="related-groups">
-          <div v-for="round in relatedRounds" :key="round.id" class="related-group" @click="openReviewRoundEdit(round)">
-            <div class="group-name">{{ round.name }}</div>
+          <div v-for="round in relatedRounds" :key="round.id" class="related-group">
+            <div class="group-header-row">
+              <div class="group-name" @click="openReviewRoundEdit(round)">{{ round.name }}</div>
+              <button class="remove-btn" @click.stop="removeFromRound(round)" title="从该轮次移除">✕</button>
+            </div>
             <div v-if="round.note" class="group-note">{{ round.note }}</div>
             <div class="group-problems">
               <span
@@ -445,7 +477,7 @@ onUnmounted(() => {
           </div>
         </div>
         <div v-else class="related-empty">
-          暂未加入复习轮次，点击「新建轮次」创建
+          暂未加入复习轮次，点击「加入轮次」或「新建轮次」
         </div>
       </div>
     </section>
@@ -1085,6 +1117,38 @@ onUnmounted(() => {
 }
 .small-btn:active {
   background: #f3f4f6;
+}
+.small-btn--primary {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #3b82f6;
+}
+.small-btn--primary:active {
+  background: #2563eb;
+}
+
+/* 轮次卡片头部行 */
+.group-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.remove-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.remove-btn:active {
+  background: #fecaca;
 }
 .group-actions {
   display: flex;
