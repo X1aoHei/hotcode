@@ -136,6 +136,34 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
     return Response.json({ ok: true })
   }
 
+  // ── Review Rounds ──
+  if (pathname === '/api/review-rounds' && method === 'GET') {
+    const rows = await loggedPrepare(db, 'SELECT * FROM review_rounds ORDER BY updated_at DESC').all()
+    const rounds = (rows.results as any[]).map((r) => ({
+      id: r.id,
+      name: r.name,
+      note: r.note,
+      problemIds: JSON.parse(r.problem_ids),
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }))
+    return Response.json(rounds)
+  }
+
+  if (pathname === '/api/review-rounds' && method === 'POST') {
+    const rounds = await request.json() as any[]
+    console.log('[SQL] POST /api/review-rounds', { count: rounds.length })
+    const stmts = [loggedPrepare(db, 'DELETE FROM review_rounds')]
+    for (const r of rounds) {
+      stmts.push(
+        loggedPrepare(db, 'INSERT INTO review_rounds (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [r.id, r.name, r.note ?? '', JSON.stringify(r.problemIds), r.createdAt, r.updatedAt])
+          .bind(r.id, r.name, r.note ?? '', JSON.stringify(r.problemIds), r.createdAt, r.updatedAt)
+      )
+    }
+    await db.batch(stmts)
+    return Response.json({ ok: true })
+  }
+
   // ── Notes ──
   const noteMatch = pathname.match(/^\/api\/notes\/(\d+)$/)
   if (noteMatch) {
@@ -188,13 +216,14 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
   // ── Export ──
   if (pathname === '/api/export' && method === 'GET') {
     console.log('[SQL] GET /api/export - exporting all tables')
-    const [userProblems, modifiedProblems, deletedProblems, progressRows, groupsRows, notesRows, draftsRows] =
+    const [userProblems, modifiedProblems, deletedProblems, progressRows, groupsRows, reviewRoundsRows, notesRows, draftsRows] =
       await Promise.all([
         loggedPrepare(db, 'SELECT * FROM user_problems').all(),
         loggedPrepare(db, 'SELECT * FROM modified_problems').all(),
         loggedPrepare(db, 'SELECT * FROM deleted_problems').all(),
         loggedPrepare(db, 'SELECT * FROM progress').all(),
         loggedPrepare(db, 'SELECT * FROM groups').all(),
+        loggedPrepare(db, 'SELECT * FROM review_rounds').all(),
         loggedPrepare(db, 'SELECT * FROM notes').all(),
         loggedPrepare(db, 'SELECT * FROM drafts').all(),
       ])
@@ -208,6 +237,7 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
         deletedProblems: deletedProblems.results,
         progress: progressRows.results,
         groups: groupsRows.results,
+        reviewRounds: reviewRoundsRows.results,
         notes: notesRows.results,
         drafts: draftsRows.results,
       },
@@ -388,6 +418,17 @@ async function handleApi(url: URL, request: Request, env: Env): Promise<Response
           )
         }
         tableBatches.push(groupStmts)
+      }
+      if (body.data?.reviewRounds) {
+        console.log('[SQL] Import new format reviewRounds', { count: body.data.reviewRounds.length })
+        const roundStmts: D1PreparedStatement[] = [loggedPrepare(db, 'DELETE FROM review_rounds')]
+        for (const r of body.data.reviewRounds) {
+          roundStmts.push(
+            loggedPrepare(db, 'INSERT INTO review_rounds (id, name, note, problem_ids, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', [r.id, r.name, r.note, r.problem_ids, r.created_at, r.updated_at])
+              .bind(r.id, r.name, r.note, r.problem_ids, r.created_at, r.updated_at)
+          )
+        }
+        tableBatches.push(roundStmts)
       }
       if (body.data?.notes) {
         console.log('[SQL] Import new format notes', { count: body.data.notes.length })

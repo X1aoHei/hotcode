@@ -19,6 +19,12 @@ const routes: RouteRecordRaw[] = [
     name: 'groups',
     component: () => import('@/views/GroupsList.vue'),
     meta: { title: '题目组合' }
+  },
+  {
+    path: '/review-rounds',
+    name: 'review-rounds',
+    component: () => import('@/views/ReviewRoundsList.vue'),
+    meta: { title: '复习轮次' }
   }
 ]
 

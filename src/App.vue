@@ -30,6 +30,7 @@ function goHome() {
       </div>
 
       <button class="groups-nav-btn" @click="router.push('/groups')">组合</button>
+      <button class="groups-nav-btn" @click="router.push('/review-rounds')">复习</button>
 
       <div class="header-progress">
         <div class="progress-meta">

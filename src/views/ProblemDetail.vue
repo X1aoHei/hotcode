@@ -5,11 +5,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useProblemsStore } from '@/stores/problems'
 import { useProgressStore } from '@/stores/progress'
 import { useGroupsStore } from '@/stores/groups'
+import { useReviewRoundsStore } from '@/stores/reviewRounds'
 import { problems as staticProblems } from '@/data/problems'
 import { extractMethodSignatures } from '@/utils/code'
 import { api } from '@/utils/api'
 import ProblemFormModal from '@/components/ProblemFormModal.vue'
 import GroupFormModal from '@/components/GroupFormModal.vue'
+import ReviewRoundFormModal from '@/components/ReviewRoundFormModal.vue'
 import { Codemirror } from 'vue-codemirror'
 import { java } from '@codemirror/lang-java'
 import { indentUnit } from '@codemirror/language'
@@ -23,6 +25,7 @@ const router = useRouter()
 const problemsStore = useProblemsStore()
 const progress = useProgressStore()
 const groupsStore = useGroupsStore()
+const reviewRoundsStore = useReviewRoundsStore()
 
 const cmExtensions = [java(), oneDark, EditorState.tabSize.of(4), indentUnit.of('    ')]
 const readOnlyExtensions = [...cmExtensions, EditorView.editable.of(false)]
@@ -68,6 +71,26 @@ function openGroupCreate() {
   editingGroup.value = null
   showGroupModal.value = true
 }
+
+// ── 复习轮次管理弹窗 ──
+const showReviewRoundModal = ref(false)
+const editingReviewRound = ref<any>(null)
+
+function openReviewRoundEdit(round: any) {
+  editingReviewRound.value = round
+  showReviewRoundModal.value = true
+}
+
+function openReviewRoundCreate() {
+  editingReviewRound.value = null
+  showReviewRoundModal.value = true
+}
+
+// ── 当前题目所属的复习轮次 ──
+const relatedRounds = computed(() => {
+  if (!problem.value) return []
+  return reviewRoundsStore.getRoundsByProblemId(problem.value.id)
+})
 
 // ── 当前题目所属的组合 ──
 const relatedGroups = computed(() => {
@@ -395,6 +418,38 @@ onUnmounted(() => {
       </button>
     </div>
 
+    <!-- 复习轮次 -->
+    <section v-if="progress.isWrong(problem.id)" class="section-card">
+      <div class="section-header">
+        <span>📝 复习轮次</span>
+        <div class="group-actions">
+          <button v-if="relatedRounds.length > 0" class="small-btn" @click="openReviewRoundEdit(relatedRounds[0])">编辑轮次</button>
+          <button class="small-btn" @click="openReviewRoundCreate">新建轮次</button>
+        </div>
+      </div>
+      <div class="section-body">
+        <div v-if="relatedRounds.length > 0" class="related-groups">
+          <div v-for="round in relatedRounds" :key="round.id" class="related-group" @click="openReviewRoundEdit(round)">
+            <div class="group-name">{{ round.name }}</div>
+            <div v-if="round.note" class="group-note">{{ round.note }}</div>
+            <div class="group-problems">
+              <span
+                v-for="id in round.problemIds.filter(pid => pid !== problem?.id).sort((a, b) => a - b)"
+                :key="id"
+                class="problem-chip problem-chip--round"
+                @click.stop="openInNewTab(id)"
+              >
+                {{ id }}. {{ getProblemTitle(id) }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="related-empty">
+          暂未加入复习轮次，点击「新建轮次」创建
+        </div>
+      </div>
+    </section>
+
     <!-- 关联题目 -->
     <section class="section-card">
       <div class="section-header">
@@ -611,6 +666,13 @@ onUnmounted(() => {
       :group="editingGroup"
       :default-problem-id="problem?.id"
       @close="showGroupModal = false"
+    />
+
+    <ReviewRoundFormModal
+      :visible="showReviewRoundModal"
+      :review-round="editingReviewRound"
+      :default-problem-id="problem?.id"
+      @close="showReviewRoundModal = false"
     />
 
     <!-- 移动端悬浮按钮：直接弹出全屏代码 -->
@@ -932,6 +994,15 @@ onUnmounted(() => {
 .problem-chip:active {
   background: #f3f4f6;
   border-color: #d1d5db;
+}
+.problem-chip--round {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+.problem-chip--round:active {
+  background: #fde68a;
+  border-color: #fcd34d;
 }
 .related-empty {
   text-align: center;

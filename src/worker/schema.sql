@@ -37,6 +37,16 @@ CREATE TABLE IF NOT EXISTS groups (
   updated_at INTEGER NOT NULL
 );
 
+-- 复习轮次
+CREATE TABLE IF NOT EXISTS review_rounds (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  problem_ids TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
 -- 记忆笔记
 CREATE TABLE IF NOT EXISTS notes (
   problem_id INTEGER PRIMARY KEY,
