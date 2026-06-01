@@ -521,9 +521,9 @@ onUnmounted(() => {
       </div>
       <div class="section-body">
         <div v-if="relatedGroups.length > 0" class="related-groups">
-          <div v-for="group in relatedGroups" :key="group.id" class="related-group">
+          <div v-for="group in relatedGroups" :key="group.id" class="related-group" @click="openGroupEdit(group)">
             <div class="group-header-row">
-              <div class="group-name" @click="openGroupEdit(group)">{{ group.name }}</div>
+              <div class="group-name">{{ group.name }}</div>
               <button class="remove-btn" @click.stop="removeFromGroup(group)" title="从该组合移除">✕</button>
             </div>
             <div v-if="group.note" class="group-note">{{ group.note }}</div>
@@ -1018,12 +1018,16 @@ onUnmounted(() => {
   background: #f9fafb;
   border-radius: 8px;
   border: 1px solid #f3f4f6;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.related-group:hover {
+  border-color: #93c5fd;
 }
 .related-group .group-name {
   font-size: 14px;
   font-weight: 600;
   color: #111827;
-  cursor: pointer;
 }
 .group-header-row .group-name {
   margin-bottom: 0;
