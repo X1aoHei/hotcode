@@ -307,6 +307,7 @@ const wrongStats = computed(() => {
           <span v-if="problemsStore.isCustom(p.id)" class="item-badge badge-custom" title="自定义题目">自</span>
           <span v-else-if="problemsStore.isModified(p.id)" class="item-badge badge-modified" title="已修改">改</span>
           <span v-if="getGroupCount(p.id) > 0" class="item-badge badge-group" :title="`属于 ${getGroupCount(p.id)} 个组合`">组{{ getGroupCount(p.id) }}</span>
+          <span v-if="progress.isWrong(p.id)" class="item-badge badge-wrong" title="已加入错题集">错</span>
         </div>
         <div class="item-body">
           <div :class="['item-title', { 'title-deleted': p._deleted }]">{{ p.title }}</div>
@@ -618,6 +619,7 @@ const wrongStats = computed(() => {
 .badge-custom   { background: #e0f2fe; color: #0369a1; }
 .badge-modified { background: #fef9c3; color: #92400e; }
 .badge-group    { background: #f3e8ff; color: #7c3aed; }
+.badge-wrong    { background: #fee2e2; color: #dc2626; }
 
 /* 正文 */
 .item-body {
