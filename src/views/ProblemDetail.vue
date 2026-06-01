@@ -117,6 +117,25 @@ const relatedGroups = computed(() => {
   return groupsStore.getGroupsByProblemId(problem.value.id)
 })
 
+// ── 可加入的组合（排除已加入的） ──
+const availableGroups = computed(() => {
+  if (!problem.value) return []
+  const relatedIds = new Set(relatedGroups.value.map(g => g.id))
+  return groupsStore.allGroups.filter(g => !relatedIds.has(g.id))
+})
+
+function addToGroup(groupId: string) {
+  if (!problem.value) return
+  groupsStore.addProblemToGroup(groupId, problem.value.id)
+  ElMessage.success('已加入组合')
+}
+
+function removeFromGroup(group: import('@/types/group').ProblemGroup) {
+  if (!problem.value) return
+  groupsStore.removeProblemFromGroup(group.id, problem.value.id)
+  ElMessage.success('已从组合移除')
+}
+
 function getProblemTitle(id: number): string {
   return problemsStore.getById(id)?.title ?? `#${id}`
 }
@@ -487,14 +506,26 @@ onUnmounted(() => {
       <div class="section-header">
         <span>🔗 关联题目</span>
         <div class="group-actions">
-          <button v-if="relatedGroups.length > 0" class="small-btn" @click="openGroupEdit(relatedGroups[0])">编辑组合</button>
+          <el-dropdown v-if="availableGroups.length > 0" trigger="click" @command="addToGroup">
+            <button class="small-btn small-btn--primary">加入组合 ▾</button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item v-for="g in availableGroups" :key="g.id" :command="g.id">
+                  {{ g.name }} ({{ g.problemIds.length }}题)
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <button class="small-btn" @click="openGroupCreate">新建组合</button>
         </div>
       </div>
       <div class="section-body">
         <div v-if="relatedGroups.length > 0" class="related-groups">
-          <div v-for="group in relatedGroups" :key="group.id" class="related-group" @click="openGroupEdit(group)">
-            <div class="group-name">{{ group.name }}</div>
+          <div v-for="group in relatedGroups" :key="group.id" class="related-group">
+            <div class="group-header-row">
+              <div class="group-name" @click="openGroupEdit(group)">{{ group.name }}</div>
+              <button class="remove-btn" @click.stop="removeFromGroup(group)" title="从该组合移除">✕</button>
+            </div>
             <div v-if="group.note" class="group-note">{{ group.note }}</div>
             <div class="group-problems">
               <span
@@ -509,7 +540,7 @@ onUnmounted(() => {
           </div>
         </div>
         <div v-else class="related-empty">
-          暂无关联，点击「管理组合」添加
+          暂无关联，点击「加入组合」或「新建组合」添加
         </div>
       </div>
     </section>
@@ -987,21 +1018,20 @@ onUnmounted(() => {
   background: #f9fafb;
   border-radius: 8px;
   border: 1px solid #f3f4f6;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-.related-group:hover {
-  border-color: #93c5fd;
 }
 .related-group .group-name {
   font-size: 14px;
   font-weight: 600;
   color: #111827;
-  margin-bottom: 4px;
+  cursor: pointer;
+}
+.group-header-row .group-name {
+  margin-bottom: 0;
 }
 .related-group .group-note {
   font-size: 12px;
   color: #6b7280;
+  margin-top: 4px;
   margin-bottom: 8px;
   line-height: 1.5;
 }
